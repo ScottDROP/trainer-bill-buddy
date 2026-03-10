@@ -8,7 +8,7 @@ import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { formatGBP, formatMonth } from "@/lib/currency";
-import { FileText, Download } from "lucide-react";
+import { FileText, Download, Send } from "lucide-react";
 import { useState, useEffect } from "react";
 
 export default function InvoicePreview() {

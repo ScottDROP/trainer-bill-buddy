@@ -89,7 +89,7 @@ export function buildXeroCSV(
         addr.city, addr.region, addr.postalCode, addr.country,
         inv.invoice_number, invoiceDate, dueDate, inv.total_due,
         "", "PT Sessions", 1, inv.subtotal,
-        "300", taxType, inv.vat_amount,
+        "324", taxType, inv.vat_amount,
         "", "", "", "",
         "GBP",
       ];

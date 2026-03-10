@@ -183,6 +183,7 @@ export default function TrainerDetail() {
                 <div className="flex justify-between"><span className="text-muted-foreground">Email</span><span>{trainer.email || "—"}</span></div>
                 <div className="flex justify-between"><span className="text-muted-foreground">Rate</span><span>{formatGBP(trainer.default_hourly_rate || 0)}/hr</span></div>
                 <div className="flex justify-between"><span className="text-muted-foreground">Payment Terms</span><span>{trainer.payment_terms || "Net 30"}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Guarantee</span><span>{trainer.guarantee_amount ? formatGBP(trainer.guarantee_amount) : "—"}</span></div>
                 {trainer.aliases && trainer.aliases.length > 0 && (
                   <div className="flex justify-between"><span className="text-muted-foreground">Aliases</span><span>{trainer.aliases.join(", ")}</span></div>
                 )}

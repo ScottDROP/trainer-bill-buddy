@@ -339,6 +339,27 @@ export default function InvoicePreview() {
                       )}
                     </div>
                   )}
+                  {/* Send single invoice */}
+                  <Separator className="my-6" />
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={sendSingleMutation.isPending}
+                      onClick={() => sendSingleMutation.mutate({ invoiceId: selectedInv.id, testEmail: "scott@dropgym.io" })}
+                    >
+                      <Send className="mr-2 h-4 w-4" />
+                      {sendSingleMutation.isPending ? "Sending..." : "Send Test to Me"}
+                    </Button>
+                    <Button
+                      size="sm"
+                      disabled={sendSingleMutation.isPending}
+                      onClick={() => sendSingleMutation.mutate({ invoiceId: selectedInv.id })}
+                    >
+                      <Send className="mr-2 h-4 w-4" />
+                      {sendSingleMutation.isPending ? "Sending..." : `Send to ${selectedTrainer.email || "Trainer"}`}
+                    </Button>
+                  </div>
                 </CardContent>
               </Card>
             ) : (

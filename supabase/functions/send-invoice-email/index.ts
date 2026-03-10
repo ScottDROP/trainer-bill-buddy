@@ -14,10 +14,10 @@ Deno.serve(async (req) => {
   try {
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
 
-    if (!LOVABLE_API_KEY) {
-      throw new Error("LOVABLE_API_KEY is not configured — email sending is not available yet");
+    if (!RESEND_API_KEY) {
+      throw new Error("RESEND_API_KEY is not configured");
     }
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
@@ -36,7 +36,6 @@ Deno.serve(async (req) => {
       throw new Error("invoice_ids array is required");
     }
 
-    // Fetch invoices with trainer details
     const { data: invoices, error: invError } = await supabase
       .from("invoices")
       .select("*")
@@ -55,7 +54,6 @@ Deno.serve(async (req) => {
       .limit(1)
       .maybeSingle();
 
-    // Fetch line items for all invoices
     const payRunRowIds = invoices!.map((inv: any) => inv.pay_run_row_id);
     const { data: lineItems } = await supabase
       .from("pay_run_line_items")
@@ -79,7 +77,6 @@ Deno.serve(async (req) => {
 
       const invLineItems = lineItems?.filter((li: any) => li.pay_run_row_id === invoice.pay_run_row_id) || [];
 
-      // Build line items HTML
       const lineItemsHtml = invLineItems
         .map(
           (li: any) =>
@@ -98,6 +95,7 @@ Deno.serve(async (req) => {
           : "";
 
       const companyName = companySettings?.name || "DropGym";
+      const fromEmail = companySettings?.email || "onboarding@resend.dev";
 
       const html = `
         <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">
@@ -132,26 +130,25 @@ Deno.serve(async (req) => {
       `;
 
       try {
-        // Use Lovable's transactional email API
-        const emailRes = await fetch("https://api.lovable.dev/v1/email/send", {
+        const emailRes = await fetch("https://api.resend.com/emails", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${LOVABLE_API_KEY}`,
+            Authorization: `Bearer ${RESEND_API_KEY}`,
           },
           body: JSON.stringify({
-            to: recipientEmail,
+            from: `${companyName} <${fromEmail}>`,
+            to: [recipientEmail],
             subject: `Invoice ${invoice.invoice_number} – ${companyName}`,
             html,
-            purpose: "transactional",
           }),
         });
 
         if (!emailRes.ok) {
           const errBody = await emailRes.text();
-          throw new Error(`Email API error [${emailRes.status}]: ${errBody}`);
+          throw new Error(`Resend API error [${emailRes.status}]: ${errBody}`);
         }
-        await emailRes.text();
+        await emailRes.json();
 
         results.push({ invoice_id: invoice.id, trainer: trainer.full_name, email: recipientEmail, success: true });
       } catch (emailErr: any) {

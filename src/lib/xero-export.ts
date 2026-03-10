@@ -64,7 +64,8 @@ export function buildXeroCSV(
   invoices: any[],
   trainers: any[],
   lineItems: any[],
-  rows: any[]
+  rows: any[],
+  manualLineItems: any[] = []
 ): string {
   const header = [
     "*ContactName", "EmailAddress",

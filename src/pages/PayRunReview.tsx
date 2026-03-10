@@ -114,6 +114,12 @@ export default function PayRunReview() {
           )}
         </div>
         <div className="flex gap-2">
+          {payRun?.status === "invoiced" || payRun?.status === "reviewed" ? (
+            <Button onClick={() => navigate(`/pay-runs/${id}/invoices`)}>
+              <FileText className="mr-2 h-4 w-4" />
+              View Invoices
+            </Button>
+          ) : null}
           <Button
             onClick={() => approveMutation.mutate()}
             disabled={!allMatched || approveMutation.isPending}

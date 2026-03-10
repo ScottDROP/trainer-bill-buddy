@@ -68,6 +68,8 @@ export default function Trainers() {
         company_number: form.company_number,
         default_hourly_rate: parseFloat(form.default_hourly_rate) || 0,
         payment_terms: form.payment_terms,
+        bank_account_number: form.bank_account_number,
+        bank_sort_code: form.bank_sort_code,
       };
       if (editId) {
         const { error } = await supabase.from("trainers").update(payload).eq("id", editId);

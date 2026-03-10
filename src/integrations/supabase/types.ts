@@ -265,6 +265,8 @@ export type Database = {
       trainers: {
         Row: {
           aliases: string[] | null
+          bank_account_number: string | null
+          bank_sort_code: string | null
           company_name: string | null
           company_number: string | null
           created_at: string
@@ -279,6 +281,8 @@ export type Database = {
         }
         Insert: {
           aliases?: string[] | null
+          bank_account_number?: string | null
+          bank_sort_code?: string | null
           company_name?: string | null
           company_number?: string | null
           created_at?: string
@@ -293,6 +297,8 @@ export type Database = {
         }
         Update: {
           aliases?: string[] | null
+          bank_account_number?: string | null
+          bank_sort_code?: string | null
           company_name?: string | null
           company_number?: string | null
           created_at?: string

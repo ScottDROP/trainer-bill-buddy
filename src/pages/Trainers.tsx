@@ -23,6 +23,8 @@ const emptyForm = {
   company_number: "",
   default_hourly_rate: "",
   payment_terms: "Net 30",
+  bank_account_number: "",
+  bank_sort_code: "",
 };
 
 export default function Trainers() {
@@ -66,6 +68,8 @@ export default function Trainers() {
         company_number: form.company_number,
         default_hourly_rate: parseFloat(form.default_hourly_rate) || 0,
         payment_terms: form.payment_terms,
+        bank_account_number: form.bank_account_number,
+        bank_sort_code: form.bank_sort_code,
       };
       if (editId) {
         const { error } = await supabase.from("trainers").update(payload).eq("id", editId);
@@ -112,6 +116,8 @@ export default function Trainers() {
       company_number: t.company_number || "",
       default_hourly_rate: t.default_hourly_rate?.toString() || "",
       payment_terms: t.payment_terms || "Net 30",
+      bank_account_number: t.bank_account_number || "",
+      bank_sort_code: t.bank_sort_code || "",
     });
     setEditId(t.id);
     setDialogOpen(true);
@@ -224,6 +230,24 @@ export default function Trainers() {
                     value={form.payment_terms}
                     onChange={(e) => setForm((f) => ({ ...f, payment_terms: e.target.value }))}
                     placeholder="Net 30"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Account Number</Label>
+                  <Input
+                    value={form.bank_account_number}
+                    onChange={(e) => setForm((f) => ({ ...f, bank_account_number: e.target.value }))}
+                    placeholder="12345678"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Sort Code</Label>
+                  <Input
+                    value={form.bank_sort_code}
+                    onChange={(e) => setForm((f) => ({ ...f, bank_sort_code: e.target.value }))}
+                    placeholder="00-00-00"
                   />
                 </div>
               </div>

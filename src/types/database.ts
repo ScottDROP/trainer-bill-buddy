@@ -29,6 +29,8 @@ export interface Trainer {
   company_number: string;
   default_hourly_rate: number;
   payment_terms: string;
+  bank_account_number: string;
+  bank_sort_code: string;
   created_at: string;
   updated_at: string;
 }

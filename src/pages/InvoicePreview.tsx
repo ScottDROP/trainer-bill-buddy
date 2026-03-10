@@ -149,6 +149,25 @@ export default function InvoicePreview() {
     onError: (e) => toast.error(e.message),
   });
 
+  const sendSingleMutation = useMutation({
+    mutationFn: async ({ invoiceId, testEmail }: { invoiceId: string; testEmail?: string }) => {
+      const { data, error } = await supabase.functions.invoke("send-invoice-email", {
+        body: { invoice_ids: [invoiceId], ...(testEmail ? { test_email: testEmail } : {}) },
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (data: any) => {
+      const result = data.results?.[0];
+      if (result?.success) {
+        toast.success(`Invoice emailed to ${result.email}`);
+      } else {
+        toast.error(`Failed: ${result?.error || "Unknown error"}`);
+      }
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
   const [selectedInvoice, setSelectedInvoice] = useState<string | null>(null);
 
   const selectedInv = invoices.find((inv: any) => inv.id === selectedInvoice);
@@ -320,6 +339,27 @@ export default function InvoicePreview() {
                       )}
                     </div>
                   )}
+                  {/* Send single invoice */}
+                  <Separator className="my-6" />
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={sendSingleMutation.isPending}
+                      onClick={() => sendSingleMutation.mutate({ invoiceId: selectedInv.id, testEmail: "scott@dropgym.io" })}
+                    >
+                      <Send className="mr-2 h-4 w-4" />
+                      {sendSingleMutation.isPending ? "Sending..." : "Send Test to Me"}
+                    </Button>
+                    <Button
+                      size="sm"
+                      disabled={sendSingleMutation.isPending}
+                      onClick={() => sendSingleMutation.mutate({ invoiceId: selectedInv.id })}
+                    >
+                      <Send className="mr-2 h-4 w-4" />
+                      {sendSingleMutation.isPending ? "Sending..." : `Send to ${selectedTrainer.email || "Trainer"}`}
+                    </Button>
+                  </div>
                 </CardContent>
               </Card>
             ) : (

@@ -273,6 +273,7 @@ export type Database = {
           default_hourly_rate: number | null
           email: string | null
           full_name: string
+          guarantee_amount: number | null
           id: string
           invoicing_address: string | null
           payment_terms: string | null
@@ -289,6 +290,7 @@ export type Database = {
           default_hourly_rate?: number | null
           email?: string | null
           full_name: string
+          guarantee_amount?: number | null
           id?: string
           invoicing_address?: string | null
           payment_terms?: string | null
@@ -305,6 +307,7 @@ export type Database = {
           default_hourly_rate?: number | null
           email?: string | null
           full_name?: string
+          guarantee_amount?: number | null
           id?: string
           invoicing_address?: string | null
           payment_terms?: string | null

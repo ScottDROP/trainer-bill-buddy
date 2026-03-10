@@ -95,7 +95,10 @@ export default function InvoicePreview() {
         .map((row: any, idx: number) => {
           const trainer = trainers.find((t: any) => t.id === row.matched_trainer_id);
           const lineItems = allLineItems.filter((li: any) => li.pay_run_row_id === row.id);
-          const subtotal = lineItems.reduce((s: number, li: any) => s + Number(li.amount), 0);
+          const sessionsSubtotal = lineItems.reduce((s: number, li: any) => s + Number(li.amount), 0);
+          const guarantee = Number((trainer as any)?.guarantee_amount) || 0;
+          const guaranteeTopUp = guarantee > 0 && sessionsSubtotal < guarantee ? guarantee - sessionsSubtotal : 0;
+          const subtotal = sessionsSubtotal + guaranteeTopUp;
           const hasVat = trainer?.vat_number && trainer.vat_number.trim() !== "";
           const vatAmount = hasVat ? subtotal * 0.2 : 0;
           const invoiceNum = `DG-${payRun.year}${String(payRun.month).padStart(2, "0")}-${String(idx + 1).padStart(3, "0")}`;
@@ -314,7 +317,7 @@ export default function InvoicePreview() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {selectedLineItems.map((li: any) => (
+                       {selectedLineItems.map((li: any) => (
                         <TableRow key={li.id}>
                           <TableCell>{li.sessions}</TableCell>
                           <TableCell>PT Sessions at {li.location_name}</TableCell>
@@ -322,6 +325,20 @@ export default function InvoicePreview() {
                           <TableCell className="text-right">{formatGBP(li.amount)}</TableCell>
                         </TableRow>
                       ))}
+                      {(() => {
+                        const sessionsTotal = selectedLineItems.reduce((s: number, li: any) => s + Number(li.amount), 0);
+                        const guarantee = Number((selectedTrainer as any)?.guarantee_amount) || 0;
+                        const topUp = guarantee > 0 && sessionsTotal < guarantee ? guarantee - sessionsTotal : 0;
+                        if (topUp <= 0) return null;
+                        return (
+                          <TableRow>
+                            <TableCell>1</TableCell>
+                            <TableCell>Guarantee Top-Up</TableCell>
+                            <TableCell className="text-right">{formatGBP(topUp)}</TableCell>
+                            <TableCell className="text-right">{formatGBP(topUp)}</TableCell>
+                          </TableRow>
+                        );
+                      })()}
                     </TableBody>
                   </Table>
 

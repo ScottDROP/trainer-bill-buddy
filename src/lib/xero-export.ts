@@ -99,8 +99,14 @@ export function buildXeroCSV(
       (li: any) => li.pay_run_row_id === inv.pay_run_row_id
     );
 
+    // Calculate guarantee top-up
+    const sessionsTotal = invLineItems.reduce((s: number, li: any) => s + Number(li.amount), 0);
+    const guarantee = Number(trainer.guarantee_amount) || 0;
+    const guaranteeTopUp = guarantee > 0 && sessionsTotal < guarantee ? guarantee - sessionsTotal : 0;
+
+    let isFirstRow = true;
+
     if (invLineItems.length === 0) {
-      // Single row with totals
       const row = [
         contactName, trainer.email || "",
         addr.line1, addr.line2, addr.line3, addr.line4,
@@ -112,26 +118,46 @@ export function buildXeroCSV(
         "GBP",
       ];
       csvRows.push(row.map(escapeCSV).join(","));
+      isFirstRow = false;
     } else {
-      // One row per line item; total only on first row
-      invLineItems.forEach((li: any, idx: number) => {
+      invLineItems.forEach((li: any) => {
         const liVat = hasVat ? Number(li.amount) * 0.2 : 0;
         const locationName = mapLocationTracking(li.location_name);
         const row = [
           contactName, trainer.email || "",
-          idx === 0 ? addr.line1 : "", idx === 0 ? addr.line2 : "",
-          idx === 0 ? addr.line3 : "", idx === 0 ? addr.line4 : "",
-          idx === 0 ? addr.city : "", idx === 0 ? addr.region : "",
-          idx === 0 ? addr.postalCode : "", idx === 0 ? addr.country : "",
+          isFirstRow ? addr.line1 : "", isFirstRow ? addr.line2 : "",
+          isFirstRow ? addr.line3 : "", isFirstRow ? addr.line4 : "",
+          isFirstRow ? addr.city : "", isFirstRow ? addr.region : "",
+          isFirstRow ? addr.postalCode : "", isFirstRow ? addr.country : "",
           inv.invoice_number, invoiceDate, dueDate,
-          idx === 0 ? inv.total_due : "",
+          isFirstRow ? inv.total_due : "",
           "", `PT Sessions at ${li.location_name}`, li.sessions, li.rate,
           "324", taxType, liVat,
           "Location", locationName, "", "",
           "GBP",
         ];
         csvRows.push(row.map(escapeCSV).join(","));
+        isFirstRow = false;
       });
+    }
+
+    // Add guarantee top-up row if applicable
+    if (guaranteeTopUp > 0) {
+      const topUpVat = hasVat ? guaranteeTopUp * 0.2 : 0;
+      const row = [
+        contactName, trainer.email || "",
+        isFirstRow ? addr.line1 : "", isFirstRow ? addr.line2 : "",
+        isFirstRow ? addr.line3 : "", isFirstRow ? addr.line4 : "",
+        isFirstRow ? addr.city : "", isFirstRow ? addr.region : "",
+        isFirstRow ? addr.postalCode : "", isFirstRow ? addr.country : "",
+        inv.invoice_number, invoiceDate, dueDate,
+        isFirstRow ? inv.total_due : "",
+        "", "Guarantee Top-Up", 1, guaranteeTopUp,
+        "324", taxType, topUpVat,
+        "", "", "", "",
+        "GBP",
+      ];
+      csvRows.push(row.map(escapeCSV).join(","));
     }
   }
 

@@ -67,6 +67,7 @@ export default function TrainerDetail() {
           email: form.email,
           aliases: form.aliases_str.split(",").map((a: string) => a.trim()).filter(Boolean),
           default_hourly_rate: parseFloat(form.default_hourly_rate) || 0,
+          guarantee_amount: parseFloat(form.guarantee_amount) || 0,
           payment_terms: form.payment_terms,
           bank_account_number: form.bank_account_number,
           bank_sort_code: form.bank_sort_code,
@@ -94,6 +95,7 @@ export default function TrainerDetail() {
       email: trainer.email || "",
       aliases_str: (trainer.aliases || []).join(", "),
       default_hourly_rate: trainer.default_hourly_rate?.toString() || "",
+      guarantee_amount: (trainer as any).guarantee_amount?.toString() || "",
       payment_terms: trainer.payment_terms || "Net 30",
       bank_account_number: trainer.bank_account_number || "",
       bank_sort_code: trainer.bank_sort_code || "",
@@ -173,12 +175,17 @@ export default function TrainerDetail() {
                     <Input value={form.payment_terms} onChange={(e) => setForm({ ...form, payment_terms: e.target.value })} />
                   </div>
                 </div>
+                <div className="space-y-2">
+                  <Label>Monthly Guarantee (£)</Label>
+                  <Input type="number" step="0.01" value={form.guarantee_amount} onChange={(e) => setForm({ ...form, guarantee_amount: e.target.value })} placeholder="0.00" />
+                </div>
               </>
             ) : (
               <div className="space-y-3 text-sm">
                 <div className="flex justify-between"><span className="text-muted-foreground">Email</span><span>{trainer.email || "—"}</span></div>
                 <div className="flex justify-between"><span className="text-muted-foreground">Rate</span><span>{formatGBP(trainer.default_hourly_rate || 0)}/hr</span></div>
                 <div className="flex justify-between"><span className="text-muted-foreground">Payment Terms</span><span>{trainer.payment_terms || "Net 30"}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Guarantee</span><span>{trainer.guarantee_amount ? formatGBP(trainer.guarantee_amount) : "—"}</span></div>
                 {trainer.aliases && trainer.aliases.length > 0 && (
                   <div className="flex justify-between"><span className="text-muted-foreground">Aliases</span><span>{trainer.aliases.join(", ")}</span></div>
                 )}

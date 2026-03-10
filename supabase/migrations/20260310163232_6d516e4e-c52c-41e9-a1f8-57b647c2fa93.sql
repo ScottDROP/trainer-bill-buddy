@@ -1,0 +1,1 @@
+ALTER TABLE public.trainers ADD COLUMN guarantee_amount numeric DEFAULT 0;

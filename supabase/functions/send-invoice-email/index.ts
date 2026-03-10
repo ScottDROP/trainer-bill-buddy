@@ -1,5 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
-import { encode as base64Encode } from "https://deno.land/std@0.224.0/encoding/base64.ts";
+import { encodeBase64 } from "https://deno.land/std@0.224.0/encoding/base64.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -79,7 +79,7 @@ Deno.serve(async (req) => {
 
         if (!pdfError && pdfData) {
           const arrayBuffer = await pdfData.arrayBuffer();
-          const base64 = base64Encode(new Uint8Array(arrayBuffer));
+          const base64 = encodeBase64(new Uint8Array(arrayBuffer));
           pdfAttachment = {
             filename: `${invoice.invoice_number}.pdf`,
             content: base64,

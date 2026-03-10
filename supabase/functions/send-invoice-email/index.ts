@@ -79,7 +79,7 @@ Deno.serve(async (req) => {
 
         if (!pdfError && pdfData) {
           const arrayBuffer = await pdfData.arrayBuffer();
-          const base64 = base64Encode(new Uint8Array(arrayBuffer));
+          const base64 = encodeBase64(new Uint8Array(arrayBuffer));
           pdfAttachment = {
             filename: `${invoice.invoice_number}.pdf`,
             content: base64,

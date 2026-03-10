@@ -213,6 +213,9 @@ export default function UploadPayRun() {
           if (matchedTrainer) matchStatus = "alias_matched";
         }
 
+        // Skip unmatched trainers entirely — they won't appear in the pay run
+        if (!matchedTrainer) continue;
+
         // If matched, auto-save the CSV name as an alias for future exact matching
         if (matchedTrainer && matchStatus !== "unmatched") {
           const existingAliases: string[] = matchedTrainer.aliases || [];

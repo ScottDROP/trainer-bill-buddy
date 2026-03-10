@@ -42,6 +42,24 @@ function parseAddress(address: string | null) {
   };
 }
 
+const LOCATION_MAP: Record<string, string> = {
+  "hq": "HQ",
+  "west hampstead": "West Hampstead",
+  "queens park": "Queens Park",
+  "mill hill": "Mill Hill",
+  "kensal rise": "Kensal Rise",
+  "kentish town": "Kentish Town",
+  "muswell hill": "Muswell Hill",
+};
+
+function mapLocationTracking(locationName: string): string {
+  const lower = locationName.toLowerCase().trim();
+  for (const [key, value] of Object.entries(LOCATION_MAP)) {
+    if (lower.includes(key)) return value;
+  }
+  return locationName;
+}
+
 export function buildXeroCSV(
   invoices: any[],
   trainers: any[],

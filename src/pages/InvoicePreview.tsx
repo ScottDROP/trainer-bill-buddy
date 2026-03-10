@@ -127,6 +127,27 @@ export default function InvoicePreview() {
     onError: (e) => toast.error(e.message),
   });
 
+  const sendAllMutation = useMutation({
+    mutationFn: async () => {
+      const invoiceIds = invoices.map((inv: any) => inv.id);
+      const { data, error } = await supabase.functions.invoke("send-invoice-email", {
+        body: { invoice_ids: invoiceIds },
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (data: any) => {
+      const sent = data.results?.filter((r: any) => r.success).length || 0;
+      const failed = data.results?.filter((r: any) => !r.success).length || 0;
+      if (failed > 0) {
+        toast.warning(`${sent} sent, ${failed} failed`);
+      } else {
+        toast.success(`${sent} invoices emailed successfully`);
+      }
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
   const [selectedInvoice, setSelectedInvoice] = useState<string | null>(null);
 
   const selectedInv = invoices.find((inv: any) => inv.id === selectedInvoice);

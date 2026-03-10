@@ -98,6 +98,7 @@ export function buildXeroCSV(
       // One row per line item; total only on first row
       invLineItems.forEach((li: any, idx: number) => {
         const liVat = hasVat ? Number(li.amount) * 0.2 : 0;
+        const locationName = mapLocationTracking(li.location_name);
         const row = [
           contactName, trainer.email || "",
           idx === 0 ? addr.line1 : "", idx === 0 ? addr.line2 : "",
@@ -107,8 +108,8 @@ export function buildXeroCSV(
           inv.invoice_number, invoiceDate, dueDate,
           idx === 0 ? inv.total_due : "",
           "", `PT Sessions at ${li.location_name}`, li.sessions, li.rate,
-          "300", taxType, liVat,
-          "", "", "", "",
+          "324", taxType, liVat,
+          "Location", locationName, "", "",
           "GBP",
         ];
         csvRows.push(row.map(escapeCSV).join(","));

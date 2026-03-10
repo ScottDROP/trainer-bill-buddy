@@ -250,6 +250,7 @@ export default function Trainers() {
                     placeholder="00-00-00"
                   />
                 </div>
+              </div>
               <div className="flex justify-end gap-2">
                 <Button type="button" variant="outline" onClick={resetForm}>Cancel</Button>
                 <Button type="submit" disabled={saveMutation.isPending}>

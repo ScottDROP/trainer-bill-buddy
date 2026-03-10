@@ -262,7 +262,7 @@ export default function PayRunReview() {
             <div className="space-y-4">
               {selectedTrainer && (
                 <div className="text-sm space-y-1">
-                  <p><span className="text-muted-foreground">Matched to:</span> {selectedTrainer.full_name}</p>
+                  <p><span className="text-muted-foreground">Matched to:</span> <TrainerLink trainerId={selectedTrainer.id} name={selectedTrainer.full_name} /></p>
                   <p><span className="text-muted-foreground">Email:</span> {selectedTrainer.email || "—"}</p>
                   <p><span className="text-muted-foreground">Default rate:</span> {formatGBP(selectedTrainer.default_hourly_rate || 0)}/hr</p>
                 </div>

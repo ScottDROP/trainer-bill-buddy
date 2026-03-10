@@ -262,7 +262,9 @@ export default function InvoicePreview() {
                     </div>
                     <div>
                       <p className="text-xs font-medium text-muted-foreground uppercase mb-2">To</p>
-                      <p className="font-medium">{selectedTrainer.company_name || selectedTrainer.full_name}</p>
+                      <p className="font-medium">
+                        <TrainerLink trainerId={selectedTrainer.id} name={selectedTrainer.company_name || selectedTrainer.full_name} />
+                      </p>
                       <p className="text-sm text-muted-foreground whitespace-pre-line">
                         {selectedTrainer.invoicing_address}
                       </p>

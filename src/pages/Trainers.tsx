@@ -261,7 +261,9 @@ export default function Trainers() {
                   <TableRow key={t.id}>
                     <TableCell>
                       <div>
-                        <p className="font-medium">{t.full_name}</p>
+                        <p className="font-medium">
+                          <TrainerLink trainerId={t.id} name={t.full_name} />
+                        </p>
                         {t.aliases && t.aliases.length > 0 && (
                           <p className="text-xs text-muted-foreground">
                             aka: {t.aliases.join(", ")}

@@ -131,6 +131,8 @@ export default function UploadPayRun() {
         const trainerName = row[cols.trainerCol];
         if (!trainerName || trainerName.toUpperCase() === "TOTAL") continue;
 
+        // Skip trainers not in the system — they won't appear in the pay run at all
+
         const hourlyRate = cols.rateCol !== -1 ? parseFloat(row[cols.rateCol]) || 0 : 0;
         const totalSessions = parseFloat(row[cols.totalSessionsCol]) || 0;
         const totalCost = parseFloat(row[cols.totalCostCol]) || 0;

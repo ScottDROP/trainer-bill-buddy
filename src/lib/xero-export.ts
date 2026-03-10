@@ -64,7 +64,8 @@ export function buildXeroCSV(
   invoices: any[],
   trainers: any[],
   lineItems: any[],
-  rows: any[]
+  rows: any[],
+  manualLineItems: any[] = []
 ): string {
   const header = [
     "*ContactName", "EmailAddress",
@@ -158,6 +159,28 @@ export function buildXeroCSV(
         "GBP",
       ];
       csvRows.push(row.map(escapeCSV).join(","));
+      isFirstRow = false;
+    }
+
+    // Add manual/additional line items
+    const invManualItems = manualLineItems.filter((mi: any) => mi.invoice_id === inv.id);
+    for (const mi of invManualItems) {
+      const miVat = hasVat ? Number(mi.amount) * 0.2 : 0;
+      const row = [
+        contactName, trainer.email || "",
+        isFirstRow ? addr.line1 : "", isFirstRow ? addr.line2 : "",
+        isFirstRow ? addr.line3 : "", isFirstRow ? addr.line4 : "",
+        isFirstRow ? addr.city : "", isFirstRow ? addr.region : "",
+        isFirstRow ? addr.postalCode : "", isFirstRow ? addr.country : "",
+        inv.invoice_number, invoiceDate, dueDate,
+        isFirstRow ? inv.total_due : "",
+        "", mi.description, mi.quantity, mi.unit_price,
+        "324", taxType, miVat,
+        "", "", "", "",
+        "GBP",
+      ];
+      csvRows.push(row.map(escapeCSV).join(","));
+      isFirstRow = false;
     }
   }
 

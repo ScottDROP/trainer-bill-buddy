@@ -2,20 +2,19 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { TrainerLink } from "@/components/TrainerLink";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Separator } from "@/components/ui/separator";
-import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { formatGBP, formatMonth } from "@/lib/currency";
-import { FileText, Download, Send } from "lucide-react";
+import { FileText, Download, Send, Plus, Trash2 } from "lucide-react";
 import { buildXeroCSV, downloadCSV } from "@/lib/xero-export";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 
 export default function InvoicePreview() {
   const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
   const queryClient = useQueryClient();
 
   const { data: payRun } = useQuery({
@@ -82,10 +81,91 @@ export default function InvoicePreview() {
     enabled: rows.length > 0,
   });
 
+  // Manual invoice line items
+  const invoiceIds = invoices.map((inv: any) => inv.id);
+  const { data: manualLineItems = [] } = useQuery({
+    queryKey: ["invoice-line-items", id],
+    queryFn: async () => {
+      if (invoiceIds.length === 0) return [];
+      const { data } = await supabase
+        .from("invoice_line_items")
+        .select("*")
+        .in("invoice_id", invoiceIds)
+        .order("created_at");
+      return data ?? [];
+    },
+    enabled: invoiceIds.length > 0,
+  });
+
+  const addManualItemMutation = useMutation({
+    mutationFn: async ({ invoiceId, description, quantity, unitPrice }: {
+      invoiceId: string; description: string; quantity: number; unitPrice: number;
+    }) => {
+      const { error } = await supabase.from("invoice_line_items").insert({
+        invoice_id: invoiceId,
+        description,
+        quantity,
+        unit_price: unitPrice,
+        amount: quantity * unitPrice,
+      });
+      if (error) throw error;
+
+      // Recalculate invoice totals
+      await recalcInvoiceTotals(invoiceId);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["invoice-line-items", id] });
+      queryClient.invalidateQueries({ queryKey: ["invoices", id] });
+      toast.success("Line item added");
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
+  const removeManualItemMutation = useMutation({
+    mutationFn: async ({ itemId, invoiceId }: { itemId: string; invoiceId: string }) => {
+      const { error } = await supabase.from("invoice_line_items").delete().eq("id", itemId);
+      if (error) throw error;
+      await recalcInvoiceTotals(invoiceId);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["invoice-line-items", id] });
+      queryClient.invalidateQueries({ queryKey: ["invoices", id] });
+      toast.success("Line item removed");
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
+  async function recalcInvoiceTotals(invoiceId: string) {
+    const inv = invoices.find((i: any) => i.id === invoiceId);
+    if (!inv) return;
+    const trainer = trainers.find((t: any) => t.id === inv.trainer_id);
+    const payRunLineItems = allLineItems.filter((li: any) => li.pay_run_row_id === inv.pay_run_row_id);
+    const sessionsSubtotal = payRunLineItems.reduce((s: number, li: any) => s + Number(li.amount), 0);
+
+    const guarantee = Number((trainer as any)?.guarantee_amount) || 0;
+    const guaranteeTopUp = guarantee > 0 && sessionsSubtotal < guarantee ? guarantee - sessionsSubtotal : 0;
+
+    // Fetch latest manual items
+    const { data: latestManual } = await supabase
+      .from("invoice_line_items")
+      .select("*")
+      .eq("invoice_id", invoiceId);
+    const manualTotal = (latestManual ?? []).reduce((s: number, li: any) => s + Number(li.amount), 0);
+
+    const subtotal = sessionsSubtotal + guaranteeTopUp + manualTotal;
+    const hasVat = trainer?.vat_number && trainer.vat_number.trim() !== "";
+    const vatAmount = hasVat ? subtotal * 0.2 : 0;
+
+    await supabase.from("invoices").update({
+      subtotal,
+      vat_amount: vatAmount,
+      total_due: subtotal + vatAmount,
+    }).eq("id", invoiceId);
+  }
+
   const generateMutation = useMutation({
     mutationFn: async () => {
       if (!payRun) throw new Error("No pay run");
-
       const serviceStart = new Date(payRun.year, payRun.month - 1, 1);
       const serviceEnd = new Date(payRun.year, payRun.month, 0);
 
@@ -121,7 +201,6 @@ export default function InvoicePreview() {
         const { error } = await supabase.from("invoices").insert(invoicesToCreate);
         if (error) throw error;
       }
-
       await supabase.from("pay_runs").update({ status: "invoiced" as any }).eq("id", id!);
     },
     onSuccess: () => {
@@ -134,9 +213,9 @@ export default function InvoicePreview() {
 
   const sendAllMutation = useMutation({
     mutationFn: async () => {
-      const invoiceIds = invoices.map((inv: any) => inv.id);
+      const ids = invoices.map((inv: any) => inv.id);
       const { data, error } = await supabase.functions.invoke("send-invoice-email", {
-        body: { invoice_ids: invoiceIds },
+        body: { invoice_ids: ids },
       });
       if (error) throw error;
       return data;
@@ -144,11 +223,8 @@ export default function InvoicePreview() {
     onSuccess: (data: any) => {
       const sent = data.results?.filter((r: any) => r.success).length || 0;
       const failed = data.results?.filter((r: any) => !r.success).length || 0;
-      if (failed > 0) {
-        toast.warning(`${sent} sent, ${failed} failed`);
-      } else {
-        toast.success(`${sent} invoices emailed successfully`);
-      }
+      if (failed > 0) toast.warning(`${sent} sent, ${failed} failed`);
+      else toast.success(`${sent} invoices emailed successfully`);
     },
     onError: (e) => toast.error(e.message),
   });
@@ -163,26 +239,22 @@ export default function InvoicePreview() {
     },
     onSuccess: (data: any) => {
       const result = data.results?.[0];
-      if (result?.success) {
-        toast.success(`Invoice emailed to ${result.email}`);
-      } else {
-        toast.error(`Failed: ${result?.error || "Unknown error"}`);
-      }
+      if (result?.success) toast.success(`Invoice emailed to ${result.email}`);
+      else toast.error(`Failed: ${result?.error || "Unknown error"}`);
     },
     onError: (e) => toast.error(e.message),
   });
 
   const [selectedInvoice, setSelectedInvoice] = useState<string | null>(null);
+  const [newItem, setNewItem] = useState({ description: "", quantity: "1", unitPrice: "" });
 
   const selectedInv = invoices.find((inv: any) => inv.id === selectedInvoice);
-  const selectedTrainer = selectedInv
-    ? trainers.find((t: any) => t.id === selectedInv.trainer_id)
-    : null;
-  const selectedRow = selectedInv
-    ? rows.find((r: any) => r.id === selectedInv.pay_run_row_id)
-    : null;
+  const selectedTrainer = selectedInv ? trainers.find((t: any) => t.id === selectedInv.trainer_id) : null;
   const selectedLineItems = selectedInv
     ? allLineItems.filter((li: any) => li.pay_run_row_id === selectedInv.pay_run_row_id)
+    : [];
+  const selectedManualItems = selectedInv
+    ? manualLineItems.filter((li: any) => li.invoice_id === selectedInv.id)
     : [];
 
   return (
@@ -190,11 +262,7 @@ export default function InvoicePreview() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Invoices</h1>
-          {payRun && (
-            <p className="text-muted-foreground mt-1">
-              {formatMonth(payRun.month, payRun.year)}
-            </p>
-          )}
+          {payRun && <p className="text-muted-foreground mt-1">{formatMonth(payRun.month, payRun.year)}</p>}
         </div>
         <div className="flex gap-2">
           {invoices.length === 0 && (
@@ -208,7 +276,7 @@ export default function InvoicePreview() {
               <Button
                 variant="outline"
                 onClick={() => {
-                  const csv = buildXeroCSV(invoices, trainers, allLineItems, rows);
+                  const csv = buildXeroCSV(invoices, trainers, allLineItems, rows, manualLineItems);
                   const filename = payRun
                     ? `xero-bills-${payRun.year}-${String(payRun.month).padStart(2, "0")}.csv`
                     : "xero-bills.csv";
@@ -238,25 +306,19 @@ export default function InvoicePreview() {
       ) : (
         <div className="grid gap-6 lg:grid-cols-3">
           <div className="space-y-2">
-            <p className="text-sm font-medium text-muted-foreground mb-3">
-              {invoices.length} invoices
-            </p>
+            <p className="text-sm font-medium text-muted-foreground mb-3">{invoices.length} invoices</p>
             {invoices.map((inv: any) => {
               const trainer = trainers.find((t: any) => t.id === inv.trainer_id);
               return (
                 <div
                   key={inv.id}
                   className={`rounded-lg border p-3 cursor-pointer transition-colors ${
-                    selectedInvoice === inv.id
-                      ? "border-primary bg-primary/5"
-                      : "border-border hover:bg-muted/50"
+                    selectedInvoice === inv.id ? "border-primary bg-primary/5" : "border-border hover:bg-muted/50"
                   }`}
                   onClick={() => setSelectedInvoice(inv.id)}
                 >
                   <p className="font-medium text-sm">
-                    {trainer ? (
-                      <TrainerLink trainerId={trainer.id} name={trainer.full_name} />
-                    ) : "Unknown"}
+                    {trainer ? <TrainerLink trainerId={trainer.id} name={trainer.full_name} /> : "Unknown"}
                   </p>
                   <div className="flex items-center justify-between mt-1">
                     <span className="text-xs text-muted-foreground">{inv.invoice_number}</span>
@@ -271,17 +333,13 @@ export default function InvoicePreview() {
             {selectedInv && selectedTrainer ? (
               <Card>
                 <CardContent className="p-8 font-mono text-sm">
-                  {/* Invoice Title */}
                   <h2 className="text-xl font-bold text-foreground mb-6">INVOICE</h2>
 
-                  {/* Bill To + Trainer Address side by side */}
                   <div className="grid grid-cols-2 gap-8 mb-6">
                     <div>
                       <p className="font-bold">Bill To:</p>
                       <p>{companySettings?.name || "DropGym"}</p>
-                      {companySettings?.address && (
-                        <p className="whitespace-pre-line">{companySettings.address}</p>
-                      )}
+                      {companySettings?.address && <p className="whitespace-pre-line">{companySettings.address}</p>}
                     </div>
                     <div>
                       <p className="font-medium">
@@ -293,7 +351,6 @@ export default function InvoicePreview() {
                     </div>
                   </div>
 
-                  {/* Invoice metadata */}
                   <div className="mb-6 space-y-1">
                     <p>Invoice Number: {selectedInv.invoice_number}</p>
                     <p>Invoice Date: {new Date(selectedInv.invoice_date).toLocaleDateString("en-GB")}</p>
@@ -306,7 +363,6 @@ export default function InvoicePreview() {
                     })()}</p>
                   </div>
 
-                  {/* Line items table */}
                   <Table>
                     <TableHeader>
                       <TableRow>
@@ -314,15 +370,17 @@ export default function InvoicePreview() {
                         <TableHead>Description</TableHead>
                         <TableHead className="text-right">Unit Price</TableHead>
                         <TableHead className="text-right">Amount</TableHead>
+                        <TableHead className="w-10"></TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                       {selectedLineItems.map((li: any) => (
+                      {selectedLineItems.map((li: any) => (
                         <TableRow key={li.id}>
                           <TableCell>{li.sessions}</TableCell>
                           <TableCell>PT Sessions at {li.location_name}</TableCell>
                           <TableCell className="text-right">{formatGBP(li.rate)}</TableCell>
                           <TableCell className="text-right">{formatGBP(li.amount)}</TableCell>
+                          <TableCell></TableCell>
                         </TableRow>
                       ))}
                       {(() => {
@@ -336,15 +394,89 @@ export default function InvoicePreview() {
                             <TableCell>Guarantee Top-Up</TableCell>
                             <TableCell className="text-right">{formatGBP(topUp)}</TableCell>
                             <TableCell className="text-right">{formatGBP(topUp)}</TableCell>
+                            <TableCell></TableCell>
                           </TableRow>
                         );
                       })()}
+                      {/* Manual line items */}
+                      {selectedManualItems.map((li: any) => (
+                        <TableRow key={li.id} className="bg-muted/30">
+                          <TableCell>{li.quantity}</TableCell>
+                          <TableCell>{li.description}</TableCell>
+                          <TableCell className="text-right">{formatGBP(li.unit_price)}</TableCell>
+                          <TableCell className="text-right">{formatGBP(li.amount)}</TableCell>
+                          <TableCell>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6 text-destructive hover:text-destructive"
+                              onClick={() => removeManualItemMutation.mutate({ itemId: li.id, invoiceId: selectedInv.id })}
+                              disabled={removeManualItemMutation.isPending}
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                      {/* Add new item row */}
+                      <TableRow className="border-dashed">
+                        <TableCell>
+                          <Input
+                            className="h-7 w-14 text-xs font-mono"
+                            type="number"
+                            min="1"
+                            value={newItem.quantity}
+                            onChange={(e) => setNewItem({ ...newItem, quantity: e.target.value })}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Input
+                            className="h-7 text-xs font-mono"
+                            placeholder="Description"
+                            value={newItem.description}
+                            onChange={(e) => setNewItem({ ...newItem, description: e.target.value })}
+                          />
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Input
+                            className="h-7 w-24 text-xs font-mono text-right ml-auto"
+                            type="number"
+                            step="0.01"
+                            placeholder="0.00"
+                            value={newItem.unitPrice}
+                            onChange={(e) => setNewItem({ ...newItem, unitPrice: e.target.value })}
+                          />
+                        </TableCell>
+                        <TableCell className="text-right text-xs text-muted-foreground">
+                          {newItem.unitPrice ? formatGBP((parseFloat(newItem.quantity) || 1) * (parseFloat(newItem.unitPrice) || 0)) : "—"}
+                        </TableCell>
+                        <TableCell>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 text-primary"
+                            disabled={!newItem.description || !newItem.unitPrice || addManualItemMutation.isPending}
+                            onClick={() => {
+                              const qty = parseFloat(newItem.quantity) || 1;
+                              const price = parseFloat(newItem.unitPrice) || 0;
+                              addManualItemMutation.mutate({
+                                invoiceId: selectedInv.id,
+                                description: newItem.description,
+                                quantity: qty,
+                                unitPrice: price,
+                              });
+                              setNewItem({ description: "", quantity: "1", unitPrice: "" });
+                            }}
+                          >
+                            <Plus className="h-3 w-3" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
                     </TableBody>
                   </Table>
 
                   <Separator className="my-4" />
 
-                  {/* Totals */}
                   <div className="space-y-2 text-sm">
                     <div className="flex justify-between font-bold">
                       <span>Subtotal</span>
@@ -361,19 +493,14 @@ export default function InvoicePreview() {
                     </div>
                   </div>
 
-                  {/* Payment details - trainer's bank info */}
                   {(selectedTrainer.bank_account_number || selectedTrainer.bank_sort_code) && (
                     <div className="mt-8">
                       <p className="font-bold">Please pay to:</p>
-                      {selectedTrainer.bank_account_number && (
-                        <p>Account Number: {selectedTrainer.bank_account_number}</p>
-                      )}
-                      {selectedTrainer.bank_sort_code && (
-                        <p>Sort Code: {selectedTrainer.bank_sort_code}</p>
-                      )}
+                      {selectedTrainer.bank_account_number && <p>Account Number: {selectedTrainer.bank_account_number}</p>}
+                      {selectedTrainer.bank_sort_code && <p>Sort Code: {selectedTrainer.bank_sort_code}</p>}
                     </div>
                   )}
-                  {/* Send single invoice */}
+
                   <Separator className="my-6" />
                   <div className="flex gap-2">
                     <Button

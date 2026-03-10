@@ -54,6 +54,7 @@ function detectColumns(headers: string[]) {
     const sessMatch = h.match(/^(.+?)\s+Sessions$/i);
     if (sessMatch) {
       const locName = sessMatch[1];
+      if (locName.toLowerCase() === "total") return;
       const costCol = headers.findIndex(
         (ch) => ch.toLowerCase() === `${locName.toLowerCase()} cost`
       );

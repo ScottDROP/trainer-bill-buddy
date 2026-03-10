@@ -116,6 +116,8 @@ export default function Trainers() {
       company_number: t.company_number || "",
       default_hourly_rate: t.default_hourly_rate?.toString() || "",
       payment_terms: t.payment_terms || "Net 30",
+      bank_account_number: t.bank_account_number || "",
+      bank_sort_code: t.bank_sort_code || "",
     });
     setEditId(t.id);
     setDialogOpen(true);

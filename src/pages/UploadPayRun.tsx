@@ -231,8 +231,8 @@ export default function UploadPayRun() {
         // Build validation warnings
         const warnings: string[] = [];
         if (matchedTrainer) {
-          if (matchedTrainer.default_hourly_rate && hourlyRate && Math.abs(hourlyRate - Number(matchedTrainer.default_hourly_rate)) > 0.01) {
-            warnings.push(`CSV rate (£${hourlyRate}) differs from default rate (£${Number(matchedTrainer.default_hourly_rate).toFixed(2)})`);
+          if (!matchedTrainer.email || !matchedTrainer.invoicing_address || !matchedTrainer.bank_account_number) {
+            warnings.push("Trainer profile incomplete");
           }
           if (!matchedTrainer.email || !matchedTrainer.company_name || !matchedTrainer.invoicing_address) {
             warnings.push("Trainer profile incomplete");

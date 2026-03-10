@@ -4,7 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
+
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
@@ -17,10 +17,6 @@ const emptyForm = {
   full_name: "",
   aliases: "",
   email: "",
-  company_name: "",
-  invoicing_address: "",
-  vat_number: "",
-  company_number: "",
   default_hourly_rate: "",
   payment_terms: "Net 30",
   bank_account_number: "",
@@ -62,10 +58,6 @@ export default function Trainers() {
           .map((a) => a.trim())
           .filter(Boolean),
         email: form.email,
-        company_name: form.company_name,
-        invoicing_address: form.invoicing_address,
-        vat_number: form.vat_number,
-        company_number: form.company_number,
         default_hourly_rate: parseFloat(form.default_hourly_rate) || 0,
         payment_terms: form.payment_terms,
         bank_account_number: form.bank_account_number,
@@ -110,10 +102,6 @@ export default function Trainers() {
       full_name: t.full_name,
       aliases: (t.aliases || []).join(", "),
       email: t.email || "",
-      company_name: t.company_name || "",
-      invoicing_address: t.invoicing_address || "",
-      vat_number: t.vat_number || "",
-      company_number: t.company_number || "",
       default_hourly_rate: t.default_hourly_rate?.toString() || "",
       payment_terms: t.payment_terms || "Net 30",
       bank_account_number: t.bank_account_number || "",
@@ -124,7 +112,7 @@ export default function Trainers() {
   };
 
   const isProfileComplete = (t: any) =>
-    t.full_name && t.email && t.invoicing_address && t.bank_account_number;
+    t.full_name && t.email && t.bank_account_number;
 
   return (
     <div className="space-y-6">
@@ -178,40 +166,6 @@ export default function Trainers() {
                   onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
                   placeholder="john@example.com"
                 />
-              </div>
-              <div className="space-y-2">
-                <Label>Company / Trading Name</Label>
-                <Input
-                  value={form.company_name}
-                  onChange={(e) => setForm((f) => ({ ...f, company_name: e.target.value }))}
-                  placeholder="JS Fitness Ltd"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Invoicing Address</Label>
-                <Textarea
-                  value={form.invoicing_address}
-                  onChange={(e) => setForm((f) => ({ ...f, invoicing_address: e.target.value }))}
-                  placeholder="123 Fitness Road&#10;London&#10;E1 1AB"
-                  rows={3}
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>VAT Number</Label>
-                  <Input
-                    value={form.vat_number}
-                    onChange={(e) => setForm((f) => ({ ...f, vat_number: e.target.value }))}
-                    placeholder="GB123456789"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Company Number</Label>
-                  <Input
-                    value={form.company_number}
-                    onChange={(e) => setForm((f) => ({ ...f, company_number: e.target.value }))}
-                  />
-                </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
@@ -294,8 +248,8 @@ export default function Trainers() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Company</TableHead>
+                   <TableHead>Name</TableHead>
+                   <TableHead>Email</TableHead>
                   <TableHead>Rate</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="w-24">Actions</TableHead>
@@ -315,7 +269,7 @@ export default function Trainers() {
                       </div>
                     </TableCell>
                     <TableCell className="text-muted-foreground">
-                      {t.company_name || "—"}
+                      {t.email || "—"}
                     </TableCell>
                     <TableCell>{formatGBP(t.default_hourly_rate || 0)}/hr</TableCell>
                     <TableCell>

@@ -214,7 +214,11 @@ export default function InvoicePreview() {
                   }`}
                   onClick={() => setSelectedInvoice(inv.id)}
                 >
-                  <p className="font-medium text-sm">{trainer?.full_name || "Unknown"}</p>
+                  <p className="font-medium text-sm">
+                    {trainer ? (
+                      <TrainerLink trainerId={trainer.id} name={trainer.full_name} />
+                    ) : "Unknown"}
+                  </p>
                   <div className="flex items-center justify-between mt-1">
                     <span className="text-xs text-muted-foreground">{inv.invoice_number}</span>
                     <span className="text-sm font-medium">{formatGBP(inv.total_due)}</span>

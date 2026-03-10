@@ -112,7 +112,7 @@ export default function Trainers() {
   };
 
   const isProfileComplete = (t: any) =>
-    t.full_name && t.email && t.invoicing_address && t.bank_account_number;
+    t.full_name && t.email && t.bank_account_number;
 
   return (
     <div className="space-y-6">

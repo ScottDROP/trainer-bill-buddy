@@ -269,7 +269,7 @@ export default function Trainers() {
                       </div>
                     </TableCell>
                     <TableCell className="text-muted-foreground">
-                      {t.company_name || "—"}
+                      {t.email || "—"}
                     </TableCell>
                     <TableCell>{formatGBP(t.default_hourly_rate || 0)}/hr</TableCell>
                     <TableCell>

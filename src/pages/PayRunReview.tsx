@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { formatGBP, formatMonth } from "@/lib/currency";
-import { AlertTriangle, CheckCircle, HelpCircle, ArrowRight } from "lucide-react";
+import { AlertTriangle, CheckCircle, HelpCircle, ArrowRight, FileText } from "lucide-react";
 
 export default function PayRunReview() {
   const { id } = useParams<{ id: string }>();

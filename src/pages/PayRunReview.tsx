@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { TrainerLink } from "@/components/TrainerLink";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
@@ -219,9 +220,10 @@ export default function PayRunReview() {
                           </SelectContent>
                         </Select>
                       ) : (
-                        <span className="text-muted-foreground">
-                          {trainers.find((t: any) => t.id === row.matched_trainer_id)?.full_name || "—"}
-                        </span>
+                        <TrainerLink
+                          trainerId={row.matched_trainer_id}
+                          name={trainers.find((t: any) => t.id === row.matched_trainer_id)?.full_name || "—"}
+                        />
                       )}
                     </TableCell>
                     <TableCell>{formatGBP(row.hourly_rate_csv)}/hr</TableCell>
@@ -260,7 +262,7 @@ export default function PayRunReview() {
             <div className="space-y-4">
               {selectedTrainer && (
                 <div className="text-sm space-y-1">
-                  <p><span className="text-muted-foreground">Matched to:</span> {selectedTrainer.full_name}</p>
+                  <p><span className="text-muted-foreground">Matched to:</span> <TrainerLink trainerId={selectedTrainer.id} name={selectedTrainer.full_name} /></p>
                   <p><span className="text-muted-foreground">Email:</span> {selectedTrainer.email || "—"}</p>
                   <p><span className="text-muted-foreground">Default rate:</span> {formatGBP(selectedTrainer.default_hourly_rate || 0)}/hr</p>
                 </div>

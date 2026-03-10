@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { formatGBP, formatMonth } from "@/lib/currency";
-import { AlertTriangle, CheckCircle, HelpCircle, ArrowRight } from "lucide-react";
+import { AlertTriangle, CheckCircle, HelpCircle, ArrowRight, FileText } from "lucide-react";
 
 export default function PayRunReview() {
   const { id } = useParams<{ id: string }>();
@@ -114,6 +114,12 @@ export default function PayRunReview() {
           )}
         </div>
         <div className="flex gap-2">
+          {payRun?.status === "invoiced" || payRun?.status === "reviewed" ? (
+            <Button onClick={() => navigate(`/pay-runs/${id}/invoices`)}>
+              <FileText className="mr-2 h-4 w-4" />
+              View Invoices
+            </Button>
+          ) : null}
           <Button
             onClick={() => approveMutation.mutate()}
             disabled={!allMatched || approveMutation.isPending}

@@ -1,11 +1,95 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { encodeBase64 } from "https://deno.land/std@0.224.0/encoding/base64.ts";
+import { PDFDocument, StandardFonts } from "npm:pdf-lib@1.17.1";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
+
+const formatGBP = (value: number | string) => `£${Number(value || 0).toFixed(2)}`;
+const formatDate = (value: string) => new Date(value).toLocaleDateString("en-GB");
+
+async function buildFallbackInvoicePdf(params: {
+  invoice: any;
+  trainer: any;
+  companySettings: any;
+  lineItems: any[];
+}) {
+  const { invoice, trainer, companySettings, lineItems } = params;
+
+  const pdfDoc = await PDFDocument.create();
+  const page = pdfDoc.addPage([595, 842]);
+  const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+  const bold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+
+  let y = 800;
+  const left = 50;
+
+  const drawLine = (text: string, isBold = false, size = 11) => {
+    if (y < 70) {
+      return;
+    }
+    page.drawText(text, {
+      x: left,
+      y,
+      size,
+      font: isBold ? bold : font,
+    });
+    y -= size + 6;
+  };
+
+  drawLine(`INVOICE ${invoice.invoice_number}`, true, 16);
+  y -= 6;
+
+  drawLine(`Invoice Date: ${formatDate(invoice.invoice_date)}`);
+  drawLine(`Service Period: ${formatDate(invoice.service_period_start)} - ${formatDate(invoice.service_period_end)}`);
+  y -= 6;
+
+  drawLine("Bill To", true);
+  drawLine(companySettings?.name || "DropGym");
+  if (companySettings?.address) {
+    for (const line of String(companySettings.address).split("\n")) {
+      drawLine(line);
+    }
+  }
+
+  y -= 6;
+  drawLine("Trainer", true);
+  drawLine(trainer.full_name || "-");
+  if (trainer.invoicing_address) {
+    for (const line of String(trainer.invoicing_address).split("\n")) {
+      drawLine(line);
+    }
+  }
+
+  y -= 8;
+  drawLine("Line Items", true);
+  for (const item of lineItems.slice(0, 20)) {
+    const row = `${item.location_name || "Session"} | ${item.sessions} x ${formatGBP(item.rate)} = ${formatGBP(item.amount)}`;
+    drawLine(row);
+  }
+
+  y -= 8;
+  drawLine(`Subtotal: ${formatGBP(invoice.subtotal)}`, true);
+  drawLine(`VAT: ${formatGBP(invoice.vat_amount)}`, true);
+  drawLine(`Total Due: ${formatGBP(invoice.total_due)}`, true, 12);
+
+  if (companySettings?.bank_details) {
+    y -= 10;
+    drawLine("Bank Details", true);
+    for (const line of String(companySettings.bank_details).split("\n")) {
+      drawLine(line);
+    }
+  }
+
+  const bytes = await pdfDoc.save();
+  return {
+    filename: `${invoice.invoice_number}.pdf`,
+    content: encodeBase64(bytes),
+  };
+}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -26,9 +110,10 @@ Deno.serve(async (req) => {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) throw new Error("Missing authorization header");
 
-    const { data: { user }, error: authError } = await supabase.auth.getUser(
-      authHeader.replace("Bearer ", "")
-    );
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser(authHeader.replace("Bearer ", ""));
     if (authError || !user) throw new Error("Unauthorized");
 
     const { invoice_ids, test_email } = await req.json();
@@ -44,10 +129,7 @@ Deno.serve(async (req) => {
     if (invError) throw invError;
 
     const trainerIds = [...new Set(invoices!.map((inv: any) => inv.trainer_id))];
-    const { data: trainers } = await supabase
-      .from("trainers")
-      .select("*")
-      .in("id", trainerIds);
+    const { data: trainers } = await supabase.from("trainers").select("*").in("id", trainerIds);
 
     const { data: companySettings } = await supabase
       .from("company_settings")
@@ -55,23 +137,50 @@ Deno.serve(async (req) => {
       .limit(1)
       .maybeSingle();
 
-    const results: { invoice_id: string; trainer: string; email: string; success: boolean; error?: string }[] = [];
+    const payRunRowIds = invoices!.map((inv: any) => inv.pay_run_row_id);
+    const { data: lineItems } = await supabase
+      .from("pay_run_line_items")
+      .select("*")
+      .in("pay_run_row_id", payRunRowIds);
+
+    const results: {
+      invoice_id: string;
+      trainer: string;
+      email: string;
+      success: boolean;
+      attached?: boolean;
+      error?: string;
+    }[] = [];
 
     for (const invoice of invoices!) {
       const trainer = trainers?.find((t: any) => t.id === invoice.trainer_id);
       if (!trainer) {
-        results.push({ invoice_id: invoice.id, trainer: "Unknown", email: "", success: false, error: "Trainer not found" });
+        results.push({
+          invoice_id: invoice.id,
+          trainer: "Unknown",
+          email: "",
+          success: false,
+          error: "Trainer not found",
+        });
         continue;
       }
 
       const recipientEmail = test_email || trainer.email;
       if (!recipientEmail) {
-        results.push({ invoice_id: invoice.id, trainer: trainer.full_name, email: "", success: false, error: "No email address" });
+        results.push({
+          invoice_id: invoice.id,
+          trainer: trainer.full_name,
+          email: "",
+          success: false,
+          error: "No email address",
+        });
         continue;
       }
 
-      // Fetch PDF from storage
+      const invLineItems = lineItems?.filter((li: any) => li.pay_run_row_id === invoice.pay_run_row_id) || [];
+
       let pdfAttachment: { filename: string; content: string } | null = null;
+
       if (invoice.pdf_file_path) {
         const { data: pdfData, error: pdfError } = await supabase.storage
           .from("invoices")
@@ -79,12 +188,20 @@ Deno.serve(async (req) => {
 
         if (!pdfError && pdfData) {
           const arrayBuffer = await pdfData.arrayBuffer();
-          const base64 = encodeBase64(new Uint8Array(arrayBuffer));
           pdfAttachment = {
             filename: `${invoice.invoice_number}.pdf`,
-            content: base64,
+            content: encodeBase64(new Uint8Array(arrayBuffer)),
           };
         }
+      }
+
+      if (!pdfAttachment) {
+        pdfAttachment = await buildFallbackInvoicePdf({
+          invoice,
+          trainer,
+          companySettings,
+          lineItems: invLineItems,
+        });
       }
 
       const companyName = companySettings?.name || "DropGym";
@@ -95,37 +212,27 @@ Deno.serve(async (req) => {
           <h2 style="color:#1a1a1a;">Invoice ${invoice.invoice_number}</h2>
           <p>Hi ${trainer.full_name.split(" ")[0]},</p>
           <p>Please find your invoice attached for the service period 
-            ${new Date(invoice.service_period_start).toLocaleDateString("en-GB")} – 
-            ${new Date(invoice.service_period_end).toLocaleDateString("en-GB")}.</p>
-          
-          <p style="margin-top:16px;"><strong>Total Due: £${Number(invoice.total_due).toFixed(2)}</strong></p>
-
-          ${companySettings?.bank_details ? `<div style="background:#f9f9f9;padding:16px;border-radius:8px;margin-top:20px;"><p style="margin:0 0 8px;font-weight:bold;font-size:14px;">Bank Details</p><p style="margin:0;white-space:pre-line;font-size:14px;">${companySettings.bank_details}</p></div>` : ""}
-
-          <p style="margin-top:24px;color:#666;font-size:14px;">Payment terms: ${trainer.payment_terms || "Net 30"}</p>
-          <p style="color:#666;font-size:14px;">Thank you,<br/>${companyName}</p>
+            ${formatDate(invoice.service_period_start)} – 
+            ${formatDate(invoice.service_period_end)}.</p>
+          <p style="margin-top:16px;"><strong>Total Due: ${formatGBP(invoice.total_due)}</strong></p>
+          <p style="margin-top:24px;color:#666;font-size:14px;">Thank you,<br/>${companyName}</p>
         </div>
       `;
 
       try {
-        const emailBody: any = {
-          from: `${companyName} <${fromEmail}>`,
-          to: [recipientEmail],
-          subject: `Invoice ${invoice.invoice_number} – ${companyName}`,
-          html,
-        };
-
-        if (pdfAttachment) {
-          emailBody.attachments = [pdfAttachment];
-        }
-
         const emailRes = await fetch("https://api.resend.com/emails", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${RESEND_API_KEY}`,
           },
-          body: JSON.stringify(emailBody),
+          body: JSON.stringify({
+            from: `${companyName} <${fromEmail}>`,
+            to: [recipientEmail],
+            subject: `Invoice ${invoice.invoice_number} – ${companyName}`,
+            html,
+            attachments: [pdfAttachment],
+          }),
         });
 
         if (!emailRes.ok) {
@@ -134,9 +241,21 @@ Deno.serve(async (req) => {
         }
         await emailRes.json();
 
-        results.push({ invoice_id: invoice.id, trainer: trainer.full_name, email: recipientEmail, success: true });
+        results.push({
+          invoice_id: invoice.id,
+          trainer: trainer.full_name,
+          email: recipientEmail,
+          success: true,
+          attached: true,
+        });
       } catch (emailErr: any) {
-        results.push({ invoice_id: invoice.id, trainer: trainer.full_name, email: recipientEmail, success: false, error: emailErr.message });
+        results.push({
+          invoice_id: invoice.id,
+          trainer: trainer.full_name,
+          email: recipientEmail,
+          success: false,
+          error: emailErr.message,
+        });
       }
     }
 

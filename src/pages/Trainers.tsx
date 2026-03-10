@@ -233,6 +233,23 @@ export default function Trainers() {
                   />
                 </div>
               </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Account Number</Label>
+                  <Input
+                    value={form.bank_account_number}
+                    onChange={(e) => setForm((f) => ({ ...f, bank_account_number: e.target.value }))}
+                    placeholder="12345678"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Sort Code</Label>
+                  <Input
+                    value={form.bank_sort_code}
+                    onChange={(e) => setForm((f) => ({ ...f, bank_sort_code: e.target.value }))}
+                    placeholder="00-00-00"
+                  />
+                </div>
               <div className="flex justify-end gap-2">
                 <Button type="button" variant="outline" onClick={resetForm}>Cancel</Button>
                 <Button type="submit" disabled={saveMutation.isPending}>

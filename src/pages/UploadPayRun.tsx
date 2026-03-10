@@ -231,10 +231,7 @@ export default function UploadPayRun() {
         // Build validation warnings
         const warnings: string[] = [];
         if (matchedTrainer) {
-          if (!matchedTrainer.email || !matchedTrainer.invoicing_address || !matchedTrainer.bank_account_number) {
-            warnings.push("Trainer profile incomplete");
-          }
-          if (!matchedTrainer.email || !matchedTrainer.company_name || !matchedTrainer.invoicing_address) {
+          if (!matchedTrainer.email || !matchedTrainer.bank_account_number) {
             warnings.push("Trainer profile incomplete");
           }
         }

@@ -248,8 +248,8 @@ export default function Trainers() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Company</TableHead>
+                   <TableHead>Name</TableHead>
+                   <TableHead>Email</TableHead>
                   <TableHead>Rate</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="w-24">Actions</TableHead>

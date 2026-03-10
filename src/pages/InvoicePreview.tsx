@@ -201,10 +201,26 @@ export default function InvoicePreview() {
             </Button>
           )}
           {invoices.length > 0 && (
-            <Button onClick={() => sendAllMutation.mutate()} disabled={sendAllMutation.isPending}>
-              <Send className="mr-2 h-4 w-4" />
-              {sendAllMutation.isPending ? "Sending..." : "Send All Invoices"}
-            </Button>
+            <>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  const csv = buildXeroCSV(invoices, trainers, allLineItems, rows);
+                  const filename = payRun
+                    ? `xero-bills-${payRun.year}-${String(payRun.month).padStart(2, "0")}.csv`
+                    : "xero-bills.csv";
+                  downloadCSV(csv, filename);
+                  toast.success("Xero CSV downloaded");
+                }}
+              >
+                <Download className="mr-2 h-4 w-4" />
+                Export for Xero
+              </Button>
+              <Button onClick={() => sendAllMutation.mutate()} disabled={sendAllMutation.isPending}>
+                <Send className="mr-2 h-4 w-4" />
+                {sendAllMutation.isPending ? "Sending..." : "Send All Invoices"}
+              </Button>
+            </>
           )}
         </div>
       </div>

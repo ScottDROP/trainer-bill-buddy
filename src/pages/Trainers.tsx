@@ -58,10 +58,6 @@ export default function Trainers() {
           .map((a) => a.trim())
           .filter(Boolean),
         email: form.email,
-        company_name: form.company_name,
-        invoicing_address: form.invoicing_address,
-        vat_number: form.vat_number,
-        company_number: form.company_number,
         default_hourly_rate: parseFloat(form.default_hourly_rate) || 0,
         payment_terms: form.payment_terms,
         bank_account_number: form.bank_account_number,

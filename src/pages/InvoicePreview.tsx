@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { formatGBP, formatMonth } from "@/lib/currency";
 import { FileText, Download, Send } from "lucide-react";
+import { buildXeroCSV, downloadCSV } from "@/lib/xero-export";
 import { useState, useEffect } from "react";
 
 export default function InvoicePreview() {

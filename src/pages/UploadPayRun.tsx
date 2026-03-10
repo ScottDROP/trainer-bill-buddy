@@ -128,31 +128,103 @@ export default function UploadPayRun() {
       for (let i = 1; i < rows.length; i++) {
         const row = rows[i];
         const trainerName = row[cols.trainerCol];
-        if (!trainerName) continue;
+        if (!trainerName || trainerName.toUpperCase() === "TOTAL") continue;
 
         const hourlyRate = cols.rateCol !== -1 ? parseFloat(row[cols.rateCol]) || 0 : 0;
         const totalSessions = parseFloat(row[cols.totalSessionsCol]) || 0;
         const totalCost = parseFloat(row[cols.totalCostCol]) || 0;
 
-        // Match trainer
+        // Match trainer using multi-strategy matching
         let matchedTrainer: any = null;
         let matchStatus: 'auto_matched' | 'alias_matched' | 'unmatched' = "unmatched";
 
-        const exactMatch = trainerList.find(
-          (t: any) => t.full_name.toLowerCase() === trainerName.toLowerCase()
+        const csvLower = trainerName.toLowerCase().trim();
+        const csvWords = csvLower.split(/\s+/);
+
+        // 1. Exact full_name match
+        matchedTrainer = trainerList.find(
+          (t: any) => t.full_name.toLowerCase().trim() === csvLower
         );
-        if (exactMatch) {
-          matchedTrainer = exactMatch;
+        if (matchedTrainer) {
           matchStatus = "auto_matched";
-        } else {
-          const aliasMatch = trainerList.find((t: any) =>
-            (t.aliases || []).some(
-              (a: string) => a.toLowerCase() === trainerName.toLowerCase()
-            )
+        }
+
+        // 2. Exact alias match
+        if (!matchedTrainer) {
+          matchedTrainer = trainerList.find((t: any) =>
+            (t.aliases || []).some((a: string) => a.toLowerCase().trim() === csvLower)
           );
-          if (aliasMatch) {
-            matchedTrainer = aliasMatch;
-            matchStatus = "alias_matched";
+          if (matchedTrainer) matchStatus = "alias_matched";
+        }
+
+        // 3. Fuzzy: all CSV words appear in full_name (handles "Denisa Ardelean" → "Denisa Maria Ardelean")
+        if (!matchedTrainer) {
+          matchedTrainer = trainerList.find((t: any) => {
+            const nameWords = t.full_name.toLowerCase().split(/\s+/);
+            return csvWords.every((w: string) => nameWords.some((nw: string) => nw === w));
+          });
+          if (matchedTrainer) matchStatus = "auto_matched";
+        }
+
+        // 4. Fuzzy: all full_name words appear in CSV name (handles "Cynthia Aguirre" in "Cynthia Aguirre Hernandez")
+        if (!matchedTrainer) {
+          matchedTrainer = trainerList.find((t: any) => {
+            const nameWords = t.full_name.toLowerCase().split(/\s+/);
+            return nameWords.every((nw: string) => csvWords.some((w: string) => w === nw));
+          });
+          if (matchedTrainer) matchStatus = "auto_matched";
+        }
+
+        // 5. Fuzzy: first name + any last name word overlap (handles "Maria Gomez" → "Maria Paula Gomez Fisco")
+        if (!matchedTrainer && csvWords.length >= 2) {
+          const csvFirst = csvWords[0];
+          const csvLastWords = csvWords.slice(1);
+          matchedTrainer = trainerList.find((t: any) => {
+            const nameWords = t.full_name.toLowerCase().split(/\s+/);
+            const nameFirst = nameWords[0];
+            const nameLastWords = nameWords.slice(1);
+            // First name matches and at least one last name word overlaps
+            return (
+              csvFirst === nameFirst &&
+              csvLastWords.some((cw: string) => nameLastWords.some((nw: string) => nw === cw))
+            );
+          });
+          if (matchedTrainer) matchStatus = "auto_matched";
+        }
+
+        // 6. Fuzzy: any alias word overlap with first name match
+        if (!matchedTrainer && csvWords.length >= 1) {
+          matchedTrainer = trainerList.find((t: any) =>
+            (t.aliases || []).some((alias: string) => {
+              const aliasWords = alias.toLowerCase().split(/\s+/);
+              // Check if first word matches and any other word overlaps
+              if (aliasWords[0] === csvWords[0]) {
+                if (csvWords.length === 1 && aliasWords.length === 1) return true;
+                const csvRest = csvWords.slice(1);
+                const aliasRest = aliasWords.slice(1);
+                return csvRest.some((cw: string) => aliasRest.some((aw: string) => aw === cw));
+              }
+              return false;
+            })
+          );
+          if (matchedTrainer) matchStatus = "alias_matched";
+        }
+
+        // If matched, auto-save the CSV name as an alias for future exact matching
+        if (matchedTrainer && matchStatus !== "unmatched") {
+          const existingAliases: string[] = matchedTrainer.aliases || [];
+          const alreadyHasAlias = existingAliases.some(
+            (a: string) => a.toLowerCase() === csvLower
+          );
+          const nameAlreadyMatches = matchedTrainer.full_name.toLowerCase().trim() === csvLower;
+          if (!alreadyHasAlias && !nameAlreadyMatches) {
+            const updatedAliases = [...existingAliases, trainerName.trim()];
+            await supabase
+              .from("trainers")
+              .update({ aliases: updatedAliases })
+              .eq("id", matchedTrainer.id);
+            // Update local list too
+            matchedTrainer.aliases = updatedAliases;
           }
         }
 

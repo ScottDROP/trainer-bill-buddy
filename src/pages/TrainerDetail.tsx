@@ -67,6 +67,7 @@ export default function TrainerDetail() {
           email: form.email,
           aliases: form.aliases_str.split(",").map((a: string) => a.trim()).filter(Boolean),
           default_hourly_rate: parseFloat(form.default_hourly_rate) || 0,
+          guarantee_amount: parseFloat(form.guarantee_amount) || 0,
           payment_terms: form.payment_terms,
           bank_account_number: form.bank_account_number,
           bank_sort_code: form.bank_sort_code,

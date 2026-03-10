@@ -167,40 +167,6 @@ export default function Trainers() {
                   placeholder="john@example.com"
                 />
               </div>
-              <div className="space-y-2">
-                <Label>Company / Trading Name</Label>
-                <Input
-                  value={form.company_name}
-                  onChange={(e) => setForm((f) => ({ ...f, company_name: e.target.value }))}
-                  placeholder="JS Fitness Ltd"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Invoicing Address</Label>
-                <Textarea
-                  value={form.invoicing_address}
-                  onChange={(e) => setForm((f) => ({ ...f, invoicing_address: e.target.value }))}
-                  placeholder="123 Fitness Road&#10;London&#10;E1 1AB"
-                  rows={3}
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>VAT Number</Label>
-                  <Input
-                    value={form.vat_number}
-                    onChange={(e) => setForm((f) => ({ ...f, vat_number: e.target.value }))}
-                    placeholder="GB123456789"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Company Number</Label>
-                  <Input
-                    value={form.company_number}
-                    onChange={(e) => setForm((f) => ({ ...f, company_number: e.target.value }))}
-                  />
-                </div>
-              </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Default Hourly Rate (£)</Label>

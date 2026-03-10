@@ -23,6 +23,8 @@ const emptyForm = {
   company_number: "",
   default_hourly_rate: "",
   payment_terms: "Net 30",
+  bank_account_number: "",
+  bank_sort_code: "",
 };
 
 export default function Trainers() {

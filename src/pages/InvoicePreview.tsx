@@ -231,85 +231,57 @@ export default function InvoicePreview() {
           <div className="lg:col-span-2">
             {selectedInv && selectedTrainer ? (
               <Card>
-                <CardContent className="p-8">
-                  {/* Invoice Header */}
-                  <div className="flex justify-between mb-8">
-                    <div>
-                      <h2 className="text-xl font-bold text-foreground">INVOICE</h2>
-                      <p className="text-sm text-muted-foreground mt-1">
-                        {selectedInv.invoice_number}
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <Badge variant={selectedInv.status === "draft" ? "secondary" : "default"}>
-                        {selectedInv.status}
-                      </Badge>
-                    </div>
-                  </div>
+                <CardContent className="p-8 font-mono text-sm">
+                  {/* Invoice Title */}
+                  <h2 className="text-xl font-bold text-foreground mb-6">INVOICE</h2>
 
-                  <div className="grid grid-cols-2 gap-8 mb-8">
+                  {/* Bill To + Trainer Address side by side */}
+                  <div className="grid grid-cols-2 gap-8 mb-6">
                     <div>
-                      <p className="text-xs font-medium text-muted-foreground uppercase mb-2">From</p>
-                      <p className="font-medium">{companySettings?.name || "DropGym"}</p>
-                      <p className="text-sm text-muted-foreground whitespace-pre-line">
-                        {companySettings?.address}
-                      </p>
-                      {companySettings?.vat_number && (
-                        <p className="text-sm text-muted-foreground mt-1">
-                          VAT: {companySettings.vat_number}
-                        </p>
+                      <p className="font-bold">Bill To:</p>
+                      <p>{companySettings?.name || "DropGym"}</p>
+                      {companySettings?.address && (
+                        <p className="whitespace-pre-line">{companySettings.address}</p>
                       )}
                     </div>
                     <div>
-                      <p className="text-xs font-medium text-muted-foreground uppercase mb-2">To</p>
                       <p className="font-medium">
-                        <TrainerLink trainerId={selectedTrainer.id} name={selectedTrainer.company_name || selectedTrainer.full_name} />
+                        <TrainerLink trainerId={selectedTrainer.id} name={selectedTrainer.full_name} />
                       </p>
-                      <p className="text-sm text-muted-foreground whitespace-pre-line">
-                        {selectedTrainer.invoicing_address}
-                      </p>
-                      {selectedTrainer.vat_number && (
-                        <p className="text-sm text-muted-foreground mt-1">
-                          VAT: {selectedTrainer.vat_number}
-                        </p>
+                      {selectedTrainer.invoicing_address && (
+                        <p className="whitespace-pre-line">{selectedTrainer.invoicing_address}</p>
                       )}
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-3 gap-4 mb-8 text-sm">
-                    <div>
-                      <p className="text-muted-foreground">Invoice Date</p>
-                      <p className="font-medium">
-                        {new Date(selectedInv.invoice_date).toLocaleDateString("en-GB")}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-muted-foreground">Service Period</p>
-                      <p className="font-medium">
-                        {new Date(selectedInv.service_period_start).toLocaleDateString("en-GB")} –{" "}
-                        {new Date(selectedInv.service_period_end).toLocaleDateString("en-GB")}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-muted-foreground">Payment Terms</p>
-                      <p className="font-medium">{selectedTrainer.payment_terms || "Net 30"}</p>
-                    </div>
+                  {/* Invoice metadata */}
+                  <div className="mb-6 space-y-1">
+                    <p>Invoice Number: {selectedInv.invoice_number}</p>
+                    <p>Invoice Date: {new Date(selectedInv.invoice_date).toLocaleDateString("en-GB")}</p>
+                    <p>Due Date: {(() => {
+                      const terms = selectedTrainer.payment_terms || "Net 30";
+                      const days = parseInt(terms.replace(/\D/g, "")) || 30;
+                      const due = new Date(selectedInv.invoice_date);
+                      due.setDate(due.getDate() + days);
+                      return due.toLocaleDateString("en-GB");
+                    })()}</p>
                   </div>
 
+                  {/* Line items table */}
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Location</TableHead>
-                        <TableHead className="text-right">Sessions</TableHead>
-                        <TableHead className="text-right">Rate</TableHead>
+                        <TableHead className="w-16">Qty</TableHead>
+                        <TableHead>Description</TableHead>
+                        <TableHead className="text-right">Unit Price</TableHead>
                         <TableHead className="text-right">Amount</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {selectedLineItems.map((li: any) => (
                         <TableRow key={li.id}>
-                          <TableCell>{li.location_name}</TableCell>
-                          <TableCell className="text-right">{li.sessions}</TableCell>
+                          <TableCell>{li.sessions}</TableCell>
+                          <TableCell>PT Sessions at {li.location_name}</TableCell>
                           <TableCell className="text-right">{formatGBP(li.rate)}</TableCell>
                           <TableCell className="text-right">{formatGBP(li.amount)}</TableCell>
                         </TableRow>
@@ -319,28 +291,33 @@ export default function InvoicePreview() {
 
                   <Separator className="my-4" />
 
+                  {/* Totals */}
                   <div className="space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Subtotal</span>
+                    <div className="flex justify-between font-bold">
+                      <span>Subtotal</span>
                       <span>{formatGBP(selectedInv.subtotal)}</span>
                     </div>
-                    {selectedInv.vat_amount > 0 && (
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">VAT (20%)</span>
-                        <span>{formatGBP(selectedInv.vat_amount)}</span>
-                      </div>
-                    )}
+                    <div className="flex justify-between">
+                      <span>VAT @ {selectedInv.vat_amount > 0 ? "20%" : "0%"}</span>
+                      <span>{formatGBP(selectedInv.vat_amount)}</span>
+                    </div>
                     <Separator />
-                    <div className="flex justify-between text-lg font-bold">
-                      <span>Total Due</span>
+                    <div className="flex justify-between font-bold">
+                      <span>Total</span>
                       <span>{formatGBP(selectedInv.total_due)}</span>
                     </div>
                   </div>
 
-                  {companySettings?.bank_details && (
-                    <div className="mt-8 p-4 bg-muted rounded-lg">
-                      <p className="text-xs font-medium text-muted-foreground uppercase mb-2">Bank Details</p>
-                      <p className="text-sm whitespace-pre-line">{companySettings.bank_details}</p>
+                  {/* Payment details - trainer's bank info */}
+                  {(selectedTrainer.bank_account_number || selectedTrainer.bank_sort_code) && (
+                    <div className="mt-8">
+                      <p className="font-bold">Please pay to:</p>
+                      {selectedTrainer.bank_account_number && (
+                        <p>Account Number: {selectedTrainer.bank_account_number}</p>
+                      )}
+                      {selectedTrainer.bank_sort_code && (
+                        <p>Sort Code: {selectedTrainer.bank_sort_code}</p>
+                      )}
                     </div>
                   )}
                 </CardContent>

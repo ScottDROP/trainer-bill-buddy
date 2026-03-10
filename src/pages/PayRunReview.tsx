@@ -220,9 +220,10 @@ export default function PayRunReview() {
                           </SelectContent>
                         </Select>
                       ) : (
-                        <span className="text-muted-foreground">
-                          {trainers.find((t: any) => t.id === row.matched_trainer_id)?.full_name || "—"}
-                        </span>
+                        <TrainerLink
+                          trainerId={row.matched_trainer_id}
+                          name={trainers.find((t: any) => t.id === row.matched_trainer_id)?.full_name || "—"}
+                        />
                       )}
                     </TableCell>
                     <TableCell>{formatGBP(row.hourly_rate_csv)}/hr</TableCell>

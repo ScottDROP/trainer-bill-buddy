@@ -1,9 +1,10 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { encode as base64Encode } from "https://deno.land/std@0.224.0/encoding/base64.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
+    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
 Deno.serve(async (req) => {
@@ -54,12 +55,6 @@ Deno.serve(async (req) => {
       .limit(1)
       .maybeSingle();
 
-    const payRunRowIds = invoices!.map((inv: any) => inv.pay_run_row_id);
-    const { data: lineItems } = await supabase
-      .from("pay_run_line_items")
-      .select("*")
-      .in("pay_run_row_id", payRunRowIds);
-
     const results: { invoice_id: string; trainer: string; email: string; success: boolean; error?: string }[] = [];
 
     for (const invoice of invoices!) {
@@ -75,24 +70,22 @@ Deno.serve(async (req) => {
         continue;
       }
 
-      const invLineItems = lineItems?.filter((li: any) => li.pay_run_row_id === invoice.pay_run_row_id) || [];
+      // Fetch PDF from storage
+      let pdfAttachment: { filename: string; content: string } | null = null;
+      if (invoice.pdf_file_path) {
+        const { data: pdfData, error: pdfError } = await supabase.storage
+          .from("invoices")
+          .download(invoice.pdf_file_path);
 
-      const lineItemsHtml = invLineItems
-        .map(
-          (li: any) =>
-            `<tr>
-              <td style="padding:8px;border-bottom:1px solid #eee;">${li.location_name}</td>
-              <td style="padding:8px;border-bottom:1px solid #eee;text-align:right;">${li.sessions}</td>
-              <td style="padding:8px;border-bottom:1px solid #eee;text-align:right;">£${Number(li.rate).toFixed(2)}</td>
-              <td style="padding:8px;border-bottom:1px solid #eee;text-align:right;">£${Number(li.amount).toFixed(2)}</td>
-            </tr>`
-        )
-        .join("");
-
-      const vatRow =
-        invoice.vat_amount > 0
-          ? `<tr><td colspan="3" style="padding:8px;text-align:right;">VAT (20%)</td><td style="padding:8px;text-align:right;">£${Number(invoice.vat_amount).toFixed(2)}</td></tr>`
-          : "";
+        if (!pdfError && pdfData) {
+          const arrayBuffer = await pdfData.arrayBuffer();
+          const base64 = base64Encode(new Uint8Array(arrayBuffer));
+          pdfAttachment = {
+            filename: `${invoice.invoice_number}.pdf`,
+            content: base64,
+          };
+        }
+      }
 
       const companyName = companySettings?.name || "DropGym";
       const fromEmail = companySettings?.email || "onboarding@resend.dev";
@@ -101,26 +94,11 @@ Deno.serve(async (req) => {
         <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">
           <h2 style="color:#1a1a1a;">Invoice ${invoice.invoice_number}</h2>
           <p>Hi ${trainer.full_name.split(" ")[0]},</p>
-          <p>Please find your invoice details below for the service period 
+          <p>Please find your invoice attached for the service period 
             ${new Date(invoice.service_period_start).toLocaleDateString("en-GB")} – 
             ${new Date(invoice.service_period_end).toLocaleDateString("en-GB")}.</p>
           
-          <table style="width:100%;border-collapse:collapse;margin:20px 0;">
-            <thead>
-              <tr style="background:#f5f5f5;">
-                <th style="padding:8px;text-align:left;">Location</th>
-                <th style="padding:8px;text-align:right;">Sessions</th>
-                <th style="padding:8px;text-align:right;">Rate</th>
-                <th style="padding:8px;text-align:right;">Amount</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${lineItemsHtml}
-              <tr><td colspan="3" style="padding:8px;text-align:right;font-weight:bold;">Subtotal</td><td style="padding:8px;text-align:right;font-weight:bold;">£${Number(invoice.subtotal).toFixed(2)}</td></tr>
-              ${vatRow}
-              <tr style="background:#f5f5f5;"><td colspan="3" style="padding:8px;text-align:right;font-weight:bold;">Total Due</td><td style="padding:8px;text-align:right;font-weight:bold;">£${Number(invoice.total_due).toFixed(2)}</td></tr>
-            </tbody>
-          </table>
+          <p style="margin-top:16px;"><strong>Total Due: £${Number(invoice.total_due).toFixed(2)}</strong></p>
 
           ${companySettings?.bank_details ? `<div style="background:#f9f9f9;padding:16px;border-radius:8px;margin-top:20px;"><p style="margin:0 0 8px;font-weight:bold;font-size:14px;">Bank Details</p><p style="margin:0;white-space:pre-line;font-size:14px;">${companySettings.bank_details}</p></div>` : ""}
 
@@ -130,18 +108,24 @@ Deno.serve(async (req) => {
       `;
 
       try {
+        const emailBody: any = {
+          from: `${companyName} <${fromEmail}>`,
+          to: [recipientEmail],
+          subject: `Invoice ${invoice.invoice_number} – ${companyName}`,
+          html,
+        };
+
+        if (pdfAttachment) {
+          emailBody.attachments = [pdfAttachment];
+        }
+
         const emailRes = await fetch("https://api.resend.com/emails", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${RESEND_API_KEY}`,
           },
-          body: JSON.stringify({
-            from: `${companyName} <${fromEmail}>`,
-            to: [recipientEmail],
-            subject: `Invoice ${invoice.invoice_number} – ${companyName}`,
-            html,
-          }),
+          body: JSON.stringify(emailBody),
         });
 
         if (!emailRes.ok) {

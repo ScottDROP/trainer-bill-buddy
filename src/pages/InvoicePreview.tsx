@@ -141,9 +141,15 @@ export default function InvoicePreview() {
     const trainer = trainers.find((t: any) => t.id === inv.trainer_id);
     const payRunLineItems = allLineItems.filter((li: any) => li.pay_run_row_id === inv.pay_run_row_id);
     const sessionsSubtotal = payRunLineItems.reduce((s: number, li: any) => s + Number(li.amount), 0);
+    const totalSessions = payRunLineItems.reduce((s: number, li: any) => s + Number(li.sessions), 0);
 
     const guarantee = Number((trainer as any)?.guarantee_amount) || 0;
     const guaranteeTopUp = guarantee > 0 && sessionsSubtotal < guarantee ? guarantee - sessionsSubtotal : 0;
+
+    const guaranteeSessions = Number((trainer as any)?.guarantee_sessions) || 0;
+    const hourlyRate = Number(trainer?.default_hourly_rate) || 0;
+    const sessionTopUp = guaranteeSessions > 0 && totalSessions < guaranteeSessions
+      ? (guaranteeSessions - totalSessions) * hourlyRate : 0;
 
     // Fetch latest manual items
     const { data: latestManual } = await supabase

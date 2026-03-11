@@ -69,6 +69,7 @@ export default function TrainerDetail() {
           default_hourly_rate: parseFloat(form.default_hourly_rate) || 0,
           guarantee_amount: parseFloat(form.guarantee_amount) || 0,
           guarantee_sessions: parseFloat(form.guarantee_sessions) || 0,
+          management_fee: parseFloat(form.management_fee) || 0,
           payment_terms: form.payment_terms,
           bank_account_number: form.bank_account_number,
           bank_sort_code: form.bank_sort_code,

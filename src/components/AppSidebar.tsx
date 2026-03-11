@@ -31,6 +31,7 @@ const mainItems = [
   { title: "Locations", url: "/locations", icon: MapPin },
   { title: "Upload Pay Run", url: "/upload", icon: Upload },
   { title: "Pay Runs", url: "/pay-runs", icon: FileText },
+  { title: "Reports", url: "/reports", icon: BarChart3 },
 ];
 
 const settingsItems = [

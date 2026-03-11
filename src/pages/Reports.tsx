@@ -219,6 +219,12 @@ export default function Reports() {
                         </TableCell>
                       </TableRow>
                     ))}
+                    <TableRow className="font-semibold bg-muted/50">
+                      <TableCell>Total ({withGuarantee.length} trainers)</TableCell>
+                      <TableCell className="text-right">{formatGBP(totalGuaranteeAmount)}</TableCell>
+                      <TableCell className="text-right">{withGuarantee.reduce((s, t) => s + (t.guarantee_sessions ?? 0), 0)} sessions</TableCell>
+                      <TableCell className="text-right">—</TableCell>
+                    </TableRow>
                   </TableBody>
                 </Table>
               )}

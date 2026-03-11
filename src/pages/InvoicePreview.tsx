@@ -191,7 +191,8 @@ export default function InvoicePreview() {
           const hourlyRate = Number(trainer?.default_hourly_rate) || 0;
           const sessionTopUp = guaranteeSessions > 0 && totalSessions < guaranteeSessions
             ? (guaranteeSessions - totalSessions) * hourlyRate : 0;
-          const subtotal = sessionsSubtotal + guaranteeTopUp + sessionTopUp;
+          const managementFee = Number((trainer as any)?.management_fee) || 0;
+          const subtotal = sessionsSubtotal + guaranteeTopUp + sessionTopUp + managementFee;
           const hasVat = trainer?.vat_number && trainer.vat_number.trim() !== "";
           const vatAmount = hasVat ? subtotal * 0.2 : 0;
           const invoiceNum = `DG-${payRun.year}${String(payRun.month).padStart(2, "0")}-${String(idx + 1).padStart(3, "0")}`;

@@ -99,6 +99,7 @@ export default function TrainerDetail() {
       default_hourly_rate: trainer.default_hourly_rate?.toString() || "",
       guarantee_amount: (trainer as any).guarantee_amount?.toString() || "",
       guarantee_sessions: (trainer as any).guarantee_sessions?.toString() || "",
+      management_fee: (trainer as any).management_fee?.toString() || "",
       payment_terms: trainer.payment_terms || "Net 30",
       bank_account_number: trainer.bank_account_number || "",
       bank_sort_code: trainer.bank_sort_code || "",

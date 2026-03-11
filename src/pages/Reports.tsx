@@ -354,6 +354,13 @@ export default function Reports() {
                               </TableCell>
                             </TableRow>
                           ))}
+                          <TableRow className="font-semibold bg-muted/50">
+                            <TableCell>Total</TableCell>
+                            <TableCell className="text-right">{payRunGuaranteeTopUps.reduce((s, r) => s + r.total_sessions, 0)}</TableCell>
+                            <TableCell className="text-right">{formatGBP(payRunGuaranteeTopUps.reduce((s, r) => s + r.total_cost, 0))}</TableCell>
+                            <TableCell className="text-right">—</TableCell>
+                            <TableCell className="text-right">{formatGBP(totalPayRunGuaranteeTopUp)}</TableCell>
+                          </TableRow>
                         </TableBody>
                       </Table>
                     )}

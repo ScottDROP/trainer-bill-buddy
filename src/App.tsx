@@ -16,6 +16,7 @@ import PayRuns from "@/pages/PayRuns";
 import PayRunReview from "@/pages/PayRunReview";
 import InvoicePreview from "@/pages/InvoicePreview";
 import TrainerDetail from "@/pages/TrainerDetail";
+import Reports from "@/pages/Reports";
 import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -61,6 +62,7 @@ const App = () => (
               <Route path="/pay-runs" element={<PayRuns />} />
               <Route path="/pay-runs/:id/review" element={<PayRunReview />} />
               <Route path="/pay-runs/:id/invoices" element={<InvoicePreview />} />
+              <Route path="/reports" element={<Reports />} />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>

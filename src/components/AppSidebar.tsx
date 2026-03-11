@@ -7,9 +7,12 @@ import {
   FileText,
   Dumbbell,
   BarChart3,
+  LogOut,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
+import { usePermissions } from "@/hooks/usePermissions";
+import { supabase } from "@/integrations/supabase/client";
 
 import {
   Sidebar,
@@ -25,27 +28,28 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 
-const mainItems = [
-  { title: "Dashboard", url: "/", icon: LayoutDashboard },
-  { title: "Trainers", url: "/trainers", icon: Users },
-  { title: "Locations", url: "/locations", icon: MapPin },
-  { title: "Upload Pay Run", url: "/upload", icon: Upload },
-  { title: "Pay Runs", url: "/pay-runs", icon: FileText },
-  { title: "Reports", url: "/reports", icon: BarChart3 },
-];
-
-const settingsItems = [
-  { title: "Company Settings", url: "/settings", icon: Settings },
-];
-
 export function AppSidebar() {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
   const location = useLocation();
   const currentPath = location.pathname;
+  const { hasPermission, isAdmin } = usePermissions();
 
   const isActive = (path: string) =>
     path === "/" ? currentPath === "/" : currentPath.startsWith(path);
+
+  const mainItems = [
+    { title: "Dashboard", url: "/", icon: LayoutDashboard, show: true },
+    { title: "Trainers", url: "/trainers", icon: Users, show: hasPermission("manage_trainers") },
+    { title: "Locations", url: "/locations", icon: MapPin, show: hasPermission("manage_trainers") },
+    { title: "Upload Pay Run", url: "/upload", icon: Upload, show: hasPermission("upload_pay_run") },
+    { title: "Pay Runs", url: "/pay-runs", icon: FileText, show: true },
+    { title: "Reports", url: "/reports", icon: BarChart3, show: hasPermission("view_reports") },
+  ];
+
+  const settingsItems = [
+    { title: "Settings", url: "/settings", icon: Settings, show: true },
+  ];
 
   return (
     <Sidebar collapsible="icon">
@@ -68,7 +72,7 @@ export function AppSidebar() {
           <SidebarGroupLabel>Main</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {mainItems.map((item) => (
+              {mainItems.filter((i) => i.show).map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild isActive={isActive(item.url)}>
                     <NavLink
@@ -111,6 +115,17 @@ export function AppSidebar() {
       </SidebarContent>
 
       <SidebarFooter className="border-t border-sidebar-border pt-2">
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              onClick={() => supabase.auth.signOut()}
+              className="hover:bg-sidebar-accent/50"
+            >
+              <LogOut className="h-4 w-4" />
+              {!collapsed && <span>Sign Out</span>}
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
         {!collapsed && (
           <p className="px-2 text-xs text-sidebar-foreground/40">
             © 2026 DropGym

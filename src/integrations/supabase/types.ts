@@ -312,6 +312,7 @@ export type Database = {
           email: string | null
           full_name: string
           guarantee_amount: number | null
+          guarantee_sessions: number | null
           id: string
           invoicing_address: string | null
           payment_terms: string | null
@@ -329,6 +330,7 @@ export type Database = {
           email?: string | null
           full_name: string
           guarantee_amount?: number | null
+          guarantee_sessions?: number | null
           id?: string
           invoicing_address?: string | null
           payment_terms?: string | null
@@ -346,6 +348,7 @@ export type Database = {
           email?: string | null
           full_name?: string
           guarantee_amount?: number | null
+          guarantee_sessions?: number | null
           id?: string
           invoicing_address?: string | null
           payment_terms?: string | null

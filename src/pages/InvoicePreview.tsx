@@ -182,9 +182,14 @@ export default function InvoicePreview() {
           const trainer = trainers.find((t: any) => t.id === row.matched_trainer_id);
           const lineItems = allLineItems.filter((li: any) => li.pay_run_row_id === row.id);
           const sessionsSubtotal = lineItems.reduce((s: number, li: any) => s + Number(li.amount), 0);
+          const totalSessions = lineItems.reduce((s: number, li: any) => s + Number(li.sessions), 0);
           const guarantee = Number((trainer as any)?.guarantee_amount) || 0;
           const guaranteeTopUp = guarantee > 0 && sessionsSubtotal < guarantee ? guarantee - sessionsSubtotal : 0;
-          const subtotal = sessionsSubtotal + guaranteeTopUp;
+          const guaranteeSessions = Number((trainer as any)?.guarantee_sessions) || 0;
+          const hourlyRate = Number(trainer?.default_hourly_rate) || 0;
+          const sessionTopUp = guaranteeSessions > 0 && totalSessions < guaranteeSessions
+            ? (guaranteeSessions - totalSessions) * hourlyRate : 0;
+          const subtotal = sessionsSubtotal + guaranteeTopUp + sessionTopUp;
           const hasVat = trainer?.vat_number && trainer.vat_number.trim() !== "";
           const vatAmount = hasVat ? subtotal * 0.2 : 0;
           const invoiceNum = `DG-${payRun.year}${String(payRun.month).padStart(2, "0")}-${String(idx + 1).padStart(3, "0")}`;

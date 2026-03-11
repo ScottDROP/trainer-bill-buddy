@@ -16,6 +16,7 @@ import PayRuns from "@/pages/PayRuns";
 import PayRunReview from "@/pages/PayRunReview";
 import InvoicePreview from "@/pages/InvoicePreview";
 import TrainerDetail from "@/pages/TrainerDetail";
+import Reports from "@/pages/Reports";
 import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient();

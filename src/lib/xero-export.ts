@@ -100,10 +100,15 @@ export function buildXeroCSV(
       (li: any) => li.pay_run_row_id === inv.pay_run_row_id
     );
 
-    // Calculate guarantee top-up
+    // Calculate guarantee top-ups
     const sessionsTotal = invLineItems.reduce((s: number, li: any) => s + Number(li.amount), 0);
+    const totalSessions = invLineItems.reduce((s: number, li: any) => s + Number(li.sessions), 0);
     const guarantee = Number(trainer.guarantee_amount) || 0;
     const guaranteeTopUp = guarantee > 0 && sessionsTotal < guarantee ? guarantee - sessionsTotal : 0;
+    const guaranteeSessions = Number(trainer.guarantee_sessions) || 0;
+    const hourlyRate = Number(trainer.default_hourly_rate) || 0;
+    const missingSessions = guaranteeSessions > 0 && totalSessions < guaranteeSessions ? guaranteeSessions - totalSessions : 0;
+    const sessionTopUp = missingSessions * hourlyRate;
 
     let isFirstRow = true;
 
@@ -142,7 +147,7 @@ export function buildXeroCSV(
       });
     }
 
-    // Add guarantee top-up row if applicable
+    // Add amount guarantee top-up row if applicable
     if (guaranteeTopUp > 0) {
       const topUpVat = hasVat ? guaranteeTopUp * 0.2 : 0;
       const row = [
@@ -153,7 +158,27 @@ export function buildXeroCSV(
         isFirstRow ? addr.postalCode : "", isFirstRow ? addr.country : "",
         inv.invoice_number, invoiceDate, dueDate,
         isFirstRow ? inv.total_due : "",
-        "", "Guarantee Top-Up", 1, guaranteeTopUp,
+        "", "Guarantee Top-Up (Amount)", 1, guaranteeTopUp,
+        "324", taxType, topUpVat,
+        "", "", "", "",
+        "GBP",
+      ];
+      csvRows.push(row.map(escapeCSV).join(","));
+      isFirstRow = false;
+    }
+
+    // Add session guarantee top-up row if applicable
+    if (sessionTopUp > 0) {
+      const topUpVat = hasVat ? sessionTopUp * 0.2 : 0;
+      const row = [
+        contactName, trainer.email || "",
+        isFirstRow ? addr.line1 : "", isFirstRow ? addr.line2 : "",
+        isFirstRow ? addr.line3 : "", isFirstRow ? addr.line4 : "",
+        isFirstRow ? addr.city : "", isFirstRow ? addr.region : "",
+        isFirstRow ? addr.postalCode : "", isFirstRow ? addr.country : "",
+        inv.invoice_number, invoiceDate, dueDate,
+        isFirstRow ? inv.total_due : "",
+        "", "Guarantee Top-Up (Sessions)", missingSessions, hourlyRate,
         "324", taxType, topUpVat,
         "", "", "", "",
         "GBP",

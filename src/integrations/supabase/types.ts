@@ -315,6 +315,7 @@ export type Database = {
           guarantee_sessions: number | null
           id: string
           invoicing_address: string | null
+          management_fee: number | null
           payment_terms: string | null
           updated_at: string
           vat_number: string | null
@@ -333,6 +334,7 @@ export type Database = {
           guarantee_sessions?: number | null
           id?: string
           invoicing_address?: string | null
+          management_fee?: number | null
           payment_terms?: string | null
           updated_at?: string
           vat_number?: string | null
@@ -351,6 +353,7 @@ export type Database = {
           guarantee_sessions?: number | null
           id?: string
           invoicing_address?: string | null
+          management_fee?: number | null
           payment_terms?: string | null
           updated_at?: string
           vat_number?: string | null

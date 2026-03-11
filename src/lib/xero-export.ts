@@ -187,6 +187,27 @@ export function buildXeroCSV(
       isFirstRow = false;
     }
 
+    // Add management fee row if applicable
+    const managementFee = Number(trainer.management_fee) || 0;
+    if (managementFee > 0) {
+      const mfVat = hasVat ? managementFee * 0.2 : 0;
+      const row = [
+        contactName, trainer.email || "",
+        isFirstRow ? addr.line1 : "", isFirstRow ? addr.line2 : "",
+        isFirstRow ? addr.line3 : "", isFirstRow ? addr.line4 : "",
+        isFirstRow ? addr.city : "", isFirstRow ? addr.region : "",
+        isFirstRow ? addr.postalCode : "", isFirstRow ? addr.country : "",
+        inv.invoice_number, invoiceDate, dueDate,
+        isFirstRow ? inv.total_due : "",
+        "", "Management Fee", 1, managementFee,
+        "324", taxType, mfVat,
+        "", "", "", "",
+        "GBP",
+      ];
+      csvRows.push(row.map(escapeCSV).join(","));
+      isFirstRow = false;
+    }
+
     // Add manual/additional line items
     const invManualItems = manualLineItems.filter((mi: any) => mi.invoice_id === inv.id);
     for (const mi of invManualItems) {

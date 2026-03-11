@@ -5,11 +5,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { useState, useEffect } from "react";
+import { usePermissions } from "@/hooks/usePermissions";
+import UserManagement from "@/components/UserManagement";
 
 export default function Settings() {
   const queryClient = useQueryClient();
+  const { isAdmin, hasPermission } = usePermissions();
   const [form, setForm] = useState({
     name: "",
     address: "",
@@ -68,93 +72,110 @@ export default function Settings() {
 
   if (isLoading) return <div className="text-muted-foreground">Loading...</div>;
 
+  const canManageUsers = isAdmin || hasPermission("manage_users");
+
   return (
-    <div className="max-w-2xl space-y-6">
+    <div className="max-w-4xl space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-foreground">Company Settings</h1>
+        <h1 className="text-2xl font-bold text-foreground">Settings</h1>
         <p className="text-muted-foreground mt-1">
-          DropGym details that appear on all invoices as the sender.
+          Manage company details and users.
         </p>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Company Details</CardTitle>
-          <CardDescription>These details will appear on every generated invoice.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              saveMutation.mutate();
-            }}
-            className="space-y-4"
-          >
-            <div className="space-y-2">
-              <Label htmlFor="name">Company Name</Label>
-              <Input
-                id="name"
-                value={form.name}
-                onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-                placeholder="DropGym Ltd"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="address">Address</Label>
-              <Textarea
-                id="address"
-                value={form.address}
-                onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))}
-                placeholder="123 Gym Street&#10;London&#10;SW1A 1AA"
-                rows={3}
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="vat">VAT Number</Label>
-                <Input
-                  id="vat"
-                  value={form.vat_number}
-                  onChange={(e) => setForm((f) => ({ ...f, vat_number: e.target.value }))}
-                  placeholder="GB123456789"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="company_number">Company Number</Label>
-                <Input
-                  id="company_number"
-                  value={form.company_number}
-                  onChange={(e) => setForm((f) => ({ ...f, company_number: e.target.value }))}
-                  placeholder="12345678"
-                />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                value={form.email}
-                onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
-                placeholder="accounts@dropgym.co.uk"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="bank">Bank Details</Label>
-              <Textarea
-                id="bank"
-                value={form.bank_details}
-                onChange={(e) => setForm((f) => ({ ...f, bank_details: e.target.value }))}
-                placeholder="Sort Code: 00-00-00&#10;Account: 12345678&#10;Bank: Example Bank"
-                rows={3}
-              />
-            </div>
-            <Button type="submit" disabled={saveMutation.isPending}>
-              {saveMutation.isPending ? "Saving..." : "Save Settings"}
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
+      <Tabs defaultValue="company">
+        <TabsList>
+          <TabsTrigger value="company">Company</TabsTrigger>
+          {canManageUsers && <TabsTrigger value="users">Users</TabsTrigger>}
+        </TabsList>
+
+        <TabsContent value="company" className="mt-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Company Details</CardTitle>
+              <CardDescription>These details will appear on every generated invoice.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  saveMutation.mutate();
+                }}
+                className="space-y-4"
+              >
+                <div className="space-y-2">
+                  <Label htmlFor="name">Company Name</Label>
+                  <Input
+                    id="name"
+                    value={form.name}
+                    onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+                    placeholder="DropGym Ltd"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="address">Address</Label>
+                  <Textarea
+                    id="address"
+                    value={form.address}
+                    onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))}
+                    placeholder="123 Gym Street&#10;London&#10;SW1A 1AA"
+                    rows={3}
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="vat">VAT Number</Label>
+                    <Input
+                      id="vat"
+                      value={form.vat_number}
+                      onChange={(e) => setForm((f) => ({ ...f, vat_number: e.target.value }))}
+                      placeholder="GB123456789"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="company_number">Company Number</Label>
+                    <Input
+                      id="company_number"
+                      value={form.company_number}
+                      onChange={(e) => setForm((f) => ({ ...f, company_number: e.target.value }))}
+                      placeholder="12345678"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    value={form.email}
+                    onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
+                    placeholder="accounts@dropgym.co.uk"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="bank">Bank Details</Label>
+                  <Textarea
+                    id="bank"
+                    value={form.bank_details}
+                    onChange={(e) => setForm((f) => ({ ...f, bank_details: e.target.value }))}
+                    placeholder="Sort Code: 00-00-00&#10;Account: 12345678&#10;Bank: Example Bank"
+                    rows={3}
+                  />
+                </div>
+                <Button type="submit" disabled={saveMutation.isPending}>
+                  {saveMutation.isPending ? "Saving..." : "Save Settings"}
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {canManageUsers && (
+          <TabsContent value="users" className="mt-6">
+            <UserManagement />
+          </TabsContent>
+        )}
+      </Tabs>
     </div>
   );
 }

@@ -175,9 +175,15 @@ export default function TrainerDetail() {
                     <Input value={form.payment_terms} onChange={(e) => setForm({ ...form, payment_terms: e.target.value })} />
                   </div>
                 </div>
-                <div className="space-y-2">
-                  <Label>Monthly Guarantee (£)</Label>
-                  <Input type="number" step="0.01" value={form.guarantee_amount} onChange={(e) => setForm({ ...form, guarantee_amount: e.target.value })} placeholder="0.00" />
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Monthly Guarantee (£)</Label>
+                    <Input type="number" step="0.01" value={form.guarantee_amount} onChange={(e) => setForm({ ...form, guarantee_amount: e.target.value })} placeholder="0.00" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Guaranteed Sessions</Label>
+                    <Input type="number" step="1" value={form.guarantee_sessions} onChange={(e) => setForm({ ...form, guarantee_sessions: e.target.value })} placeholder="0" />
+                  </div>
                 </div>
               </>
             ) : (

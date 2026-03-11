@@ -158,7 +158,7 @@ export default function InvoicePreview() {
       .eq("invoice_id", invoiceId);
     const manualTotal = (latestManual ?? []).reduce((s: number, li: any) => s + Number(li.amount), 0);
 
-    const subtotal = sessionsSubtotal + guaranteeTopUp + manualTotal;
+    const subtotal = sessionsSubtotal + guaranteeTopUp + sessionTopUp + manualTotal;
     const hasVat = trainer?.vat_number && trainer.vat_number.trim() !== "";
     const vatAmount = hasVat ? subtotal * 0.2 : 0;
 

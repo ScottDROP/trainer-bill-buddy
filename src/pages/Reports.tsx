@@ -219,6 +219,12 @@ export default function Reports() {
                         </TableCell>
                       </TableRow>
                     ))}
+                    <TableRow className="font-semibold bg-muted/50">
+                      <TableCell>Total ({withGuarantee.length} trainers)</TableCell>
+                      <TableCell className="text-right">{formatGBP(totalGuaranteeAmount)}</TableCell>
+                      <TableCell className="text-right">{withGuarantee.reduce((s, t) => s + (t.guarantee_sessions ?? 0), 0)} sessions</TableCell>
+                      <TableCell className="text-right">—</TableCell>
+                    </TableRow>
                   </TableBody>
                 </Table>
               )}
@@ -254,6 +260,10 @@ export default function Reports() {
                         </TableCell>
                       </TableRow>
                     ))}
+                    <TableRow className="font-semibold bg-muted/50">
+                      <TableCell>Total ({withMgmtFee.length} trainers)</TableCell>
+                      <TableCell className="text-right">{formatGBP(totalMgmtFees)}</TableCell>
+                    </TableRow>
                   </TableBody>
                 </Table>
               )}
@@ -344,6 +354,13 @@ export default function Reports() {
                               </TableCell>
                             </TableRow>
                           ))}
+                          <TableRow className="font-semibold bg-muted/50">
+                            <TableCell>Total</TableCell>
+                            <TableCell className="text-right">{payRunGuaranteeTopUps.reduce((s, r) => s + r.total_sessions, 0)}</TableCell>
+                            <TableCell className="text-right">{formatGBP(payRunGuaranteeTopUps.reduce((s, r) => s + r.total_cost, 0))}</TableCell>
+                            <TableCell className="text-right">—</TableCell>
+                            <TableCell className="text-right">{formatGBP(totalPayRunGuaranteeTopUp)}</TableCell>
+                          </TableRow>
                         </TableBody>
                       </Table>
                     )}
@@ -381,6 +398,11 @@ export default function Reports() {
                               </TableCell>
                             </TableRow>
                           ))}
+                          <TableRow className="font-semibold bg-muted/50">
+                            <TableCell>Total</TableCell>
+                            <TableCell className="text-right">{formatGBP(payRunMgmtRows.reduce((s, r) => s + r.total_cost, 0))}</TableCell>
+                            <TableCell className="text-right">{formatGBP(totalPayRunMgmtFees)}</TableCell>
+                          </TableRow>
                         </TableBody>
                       </Table>
                     )}

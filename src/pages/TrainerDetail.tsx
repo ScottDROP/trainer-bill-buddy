@@ -96,6 +96,7 @@ export default function TrainerDetail() {
       aliases_str: (trainer.aliases || []).join(", "),
       default_hourly_rate: trainer.default_hourly_rate?.toString() || "",
       guarantee_amount: (trainer as any).guarantee_amount?.toString() || "",
+      guarantee_sessions: (trainer as any).guarantee_sessions?.toString() || "",
       payment_terms: trainer.payment_terms || "Net 30",
       bank_account_number: trainer.bank_account_number || "",
       bank_sort_code: trainer.bank_sort_code || "",

@@ -147,7 +147,7 @@ export function buildXeroCSV(
       });
     }
 
-    // Add guarantee top-up row if applicable
+    // Add amount guarantee top-up row if applicable
     if (guaranteeTopUp > 0) {
       const topUpVat = hasVat ? guaranteeTopUp * 0.2 : 0;
       const row = [
@@ -158,7 +158,27 @@ export function buildXeroCSV(
         isFirstRow ? addr.postalCode : "", isFirstRow ? addr.country : "",
         inv.invoice_number, invoiceDate, dueDate,
         isFirstRow ? inv.total_due : "",
-        "", "Guarantee Top-Up", 1, guaranteeTopUp,
+        "", "Guarantee Top-Up (Amount)", 1, guaranteeTopUp,
+        "324", taxType, topUpVat,
+        "", "", "", "",
+        "GBP",
+      ];
+      csvRows.push(row.map(escapeCSV).join(","));
+      isFirstRow = false;
+    }
+
+    // Add session guarantee top-up row if applicable
+    if (sessionTopUp > 0) {
+      const topUpVat = hasVat ? sessionTopUp * 0.2 : 0;
+      const row = [
+        contactName, trainer.email || "",
+        isFirstRow ? addr.line1 : "", isFirstRow ? addr.line2 : "",
+        isFirstRow ? addr.line3 : "", isFirstRow ? addr.line4 : "",
+        isFirstRow ? addr.city : "", isFirstRow ? addr.region : "",
+        isFirstRow ? addr.postalCode : "", isFirstRow ? addr.country : "",
+        inv.invoice_number, invoiceDate, dueDate,
+        isFirstRow ? inv.total_due : "",
+        "", "Guarantee Top-Up (Sessions)", missingSessions, hourlyRate,
         "324", taxType, topUpVat,
         "", "", "", "",
         "GBP",

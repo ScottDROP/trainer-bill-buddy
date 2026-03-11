@@ -300,6 +300,30 @@ export type Database = {
         }
         Relationships: []
       }
+      profiles: {
+        Row: {
+          created_at: string
+          email: string
+          full_name: string
+          id: string
+          is_admin: boolean
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          full_name?: string
+          id: string
+          is_admin?: boolean
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          full_name?: string
+          id?: string
+          is_admin?: boolean
+        }
+        Relationships: []
+      }
       trainers: {
         Row: {
           aliases: string[] | null
@@ -360,14 +384,56 @@ export type Database = {
         }
         Relationships: []
       }
+      user_permissions: {
+        Row: {
+          created_at: string
+          id: string
+          permission: Database["public"]["Enums"]["app_permission"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          permission: Database["public"]["Enums"]["app_permission"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          permission?: Database["public"]["Enums"]["app_permission"]
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_permissions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_permission: {
+        Args: {
+          _permission: Database["public"]["Enums"]["app_permission"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
+      is_admin: { Args: { _user_id: string }; Returns: boolean }
     }
     Enums: {
+      app_permission:
+        | "upload_pay_run"
+        | "approve_pay_run"
+        | "manage_trainers"
+        | "view_reports"
+        | "manage_users"
       invoice_status: "draft" | "final"
       match_status: "auto_matched" | "alias_matched" | "manual" | "unmatched"
       pay_run_status: "uploaded" | "matched" | "reviewed" | "invoiced"
@@ -498,6 +564,13 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      app_permission: [
+        "upload_pay_run",
+        "approve_pay_run",
+        "manage_trainers",
+        "view_reports",
+        "manage_users",
+      ],
       invoice_status: ["draft", "final"],
       match_status: ["auto_matched", "alias_matched", "manual", "unmatched"],
       pay_run_status: ["uploaded", "matched", "reviewed", "invoiced"],

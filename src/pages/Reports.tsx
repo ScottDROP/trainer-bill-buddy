@@ -260,6 +260,10 @@ export default function Reports() {
                         </TableCell>
                       </TableRow>
                     ))}
+                    <TableRow className="font-semibold bg-muted/50">
+                      <TableCell>Total ({withMgmtFee.length} trainers)</TableCell>
+                      <TableCell className="text-right">{formatGBP(totalMgmtFees)}</TableCell>
+                    </TableRow>
                   </TableBody>
                 </Table>
               )}

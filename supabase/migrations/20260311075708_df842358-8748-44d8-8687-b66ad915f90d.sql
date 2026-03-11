@@ -1,0 +1,1 @@
+ALTER TABLE public.trainers ADD COLUMN management_fee numeric DEFAULT 0;

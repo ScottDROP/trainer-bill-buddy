@@ -396,17 +396,34 @@ export default function InvoicePreview() {
                       ))}
                       {(() => {
                         const sessionsTotal = selectedLineItems.reduce((s: number, li: any) => s + Number(li.amount), 0);
+                        const totalSessions = selectedLineItems.reduce((s: number, li: any) => s + Number(li.sessions), 0);
                         const guarantee = Number((selectedTrainer as any)?.guarantee_amount) || 0;
-                        const topUp = guarantee > 0 && sessionsTotal < guarantee ? guarantee - sessionsTotal : 0;
-                        if (topUp <= 0) return null;
+                        const amountTopUp = guarantee > 0 && sessionsTotal < guarantee ? guarantee - sessionsTotal : 0;
+                        const guaranteeSessions = Number((selectedTrainer as any)?.guarantee_sessions) || 0;
+                        const hourlyRate = Number(selectedTrainer?.default_hourly_rate) || 0;
+                        const missingSessions = guaranteeSessions > 0 && totalSessions < guaranteeSessions ? guaranteeSessions - totalSessions : 0;
+                        const sessionTopUp = missingSessions * hourlyRate;
                         return (
-                          <TableRow>
-                            <TableCell>1</TableCell>
-                            <TableCell>Guarantee Top-Up</TableCell>
-                            <TableCell className="text-right">{formatGBP(topUp)}</TableCell>
-                            <TableCell className="text-right">{formatGBP(topUp)}</TableCell>
-                            <TableCell></TableCell>
-                          </TableRow>
+                          <>
+                            {amountTopUp > 0 && (
+                              <TableRow>
+                                <TableCell>1</TableCell>
+                                <TableCell>Guarantee Top-Up (Amount)</TableCell>
+                                <TableCell className="text-right">{formatGBP(amountTopUp)}</TableCell>
+                                <TableCell className="text-right">{formatGBP(amountTopUp)}</TableCell>
+                                <TableCell></TableCell>
+                              </TableRow>
+                            )}
+                            {sessionTopUp > 0 && (
+                              <TableRow>
+                                <TableCell>{missingSessions}</TableCell>
+                                <TableCell>Guarantee Top-Up (Sessions)</TableCell>
+                                <TableCell className="text-right">{formatGBP(hourlyRate)}</TableCell>
+                                <TableCell className="text-right">{formatGBP(sessionTopUp)}</TableCell>
+                                <TableCell></TableCell>
+                              </TableRow>
+                            )}
+                          </>
                         );
                       })()}
                       {/* Manual line items */}

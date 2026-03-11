@@ -201,6 +201,7 @@ export default function TrainerDetail() {
                 <div className="flex justify-between"><span className="text-muted-foreground">Payment Terms</span><span>{trainer.payment_terms || "Net 30"}</span></div>
                 <div className="flex justify-between"><span className="text-muted-foreground">Guarantee (£)</span><span>{trainer.guarantee_amount ? formatGBP(trainer.guarantee_amount) : "—"}</span></div>
                 <div className="flex justify-between"><span className="text-muted-foreground">Guaranteed Sessions</span><span>{(trainer as any).guarantee_sessions ? (trainer as any).guarantee_sessions : "—"}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Management Fee</span><span>{(trainer as any).management_fee ? formatGBP((trainer as any).management_fee) : "—"}</span></div>
                 {trainer.aliases && trainer.aliases.length > 0 && (
                   <div className="flex justify-between"><span className="text-muted-foreground">Aliases</span><span>{trainer.aliases.join(", ")}</span></div>
                 )}

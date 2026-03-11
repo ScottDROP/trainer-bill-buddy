@@ -426,6 +426,19 @@ export default function InvoicePreview() {
                                 <TableCell></TableCell>
                               </TableRow>
                             )}
+                            {(() => {
+                              const mgmtFee = Number((selectedTrainer as any)?.management_fee) || 0;
+                              if (mgmtFee <= 0) return null;
+                              return (
+                                <TableRow>
+                                  <TableCell>1</TableCell>
+                                  <TableCell>Management Fee</TableCell>
+                                  <TableCell className="text-right">{formatGBP(mgmtFee)}</TableCell>
+                                  <TableCell className="text-right">{formatGBP(mgmtFee)}</TableCell>
+                                  <TableCell></TableCell>
+                                </TableRow>
+                              );
+                            })()}
                           </>
                         );
                       })()}

@@ -689,6 +689,7 @@ export default function InvoicePreview() {
             )}
           </div>
         </div>
+        </>
       )}
     </div>
   );

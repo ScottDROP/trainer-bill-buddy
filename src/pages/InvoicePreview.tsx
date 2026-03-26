@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import { formatGBP, formatMonth } from "@/lib/currency";
 import { FileText, Download, Send, Plus, Trash2 } from "lucide-react";
 import { buildXeroCSV, downloadCSV } from "@/lib/xero-export";
+import { buildTellerooCSV } from "@/lib/telleroo-export";
 import { useState } from "react";
 
 export default function InvoicePreview() {
@@ -300,6 +301,20 @@ export default function InvoicePreview() {
               >
                 <Download className="mr-2 h-4 w-4" />
                 Export for Xero
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  const csv = buildTellerooCSV(invoices, trainers, payRun);
+                  const filename = payRun
+                    ? `telleroo-${payRun.year}-${String(payRun.month).padStart(2, "0")}.csv`
+                    : "telleroo.csv";
+                  downloadCSV(csv, filename);
+                  toast.success("Telleroo CSV downloaded");
+                }}
+              >
+                <Download className="mr-2 h-4 w-4" />
+                Export for Telleroo
               </Button>
               <Button onClick={() => sendAllMutation.mutate()} disabled={sendAllMutation.isPending}>
                 <Send className="mr-2 h-4 w-4" />

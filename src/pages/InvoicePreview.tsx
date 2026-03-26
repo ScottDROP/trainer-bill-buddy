@@ -262,6 +262,7 @@ export default function InvoicePreview() {
 
   const [selectedInvoice, setSelectedInvoice] = useState<string | null>(null);
   const [newItem, setNewItem] = useState({ description: "", quantity: "1", unitPrice: "" });
+  const [expandedSummary, setExpandedSummary] = useState<string | null>(null);
 
   const selectedInv = invoices.find((inv: any) => inv.id === selectedInvoice);
   const selectedTrainer = selectedInv ? trainers.find((t: any) => t.id === selectedInv.trainer_id) : null;

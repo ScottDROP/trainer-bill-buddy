@@ -534,29 +534,41 @@ export default function InvoicePreview() {
                     </TableBody>
                   </Table>
 
-                  <Separator className="my-4" />
-
-                  <div className="space-y-2 text-sm">
-                    <div className="flex justify-between font-bold">
-                      <span>Subtotal</span>
-                      <span>{formatGBP(selectedInv.subtotal)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>VAT @ {selectedInv.vat_amount > 0 ? "20%" : "0%"}</span>
-                      <span>{formatGBP(selectedInv.vat_amount)}</span>
-                    </div>
-                    <Separator />
-                    <div className="flex justify-between font-bold">
-                      <span>Total</span>
-                      <span>{formatGBP(selectedInv.total_due)}</span>
+                  <div className="mt-6 flex justify-end">
+                    <div className="w-64 space-y-2 text-sm">
+                      <div className="flex justify-between text-muted-foreground">
+                        <span>Subtotal</span>
+                        <span className="font-medium text-foreground">{formatGBP(selectedInv.subtotal)}</span>
+                      </div>
+                      <div className="flex justify-between text-muted-foreground">
+                        <span>VAT @ {selectedInv.vat_amount > 0 ? "20%" : "0%"}</span>
+                        <span className="font-medium text-foreground">{formatGBP(selectedInv.vat_amount)}</span>
+                      </div>
+                      <Separator />
+                      <div className="flex justify-between text-base font-bold text-foreground pt-1">
+                        <span>Total Due</span>
+                        <span>{formatGBP(selectedInv.total_due)}</span>
+                      </div>
                     </div>
                   </div>
 
                   {(selectedTrainer.bank_account_number || selectedTrainer.bank_sort_code) && (
-                    <div className="mt-8">
-                      <p className="font-bold">Please pay to:</p>
-                      {selectedTrainer.bank_account_number && <p>Account Number: {selectedTrainer.bank_account_number}</p>}
-                      {selectedTrainer.bank_sort_code && <p>Sort Code: {selectedTrainer.bank_sort_code}</p>}
+                    <div className="mt-8 p-4 rounded-lg bg-muted/50 border border-border">
+                      <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">Payment Details</p>
+                      <div className="flex gap-6 text-sm">
+                        {selectedTrainer.bank_sort_code && (
+                          <div>
+                            <span className="text-muted-foreground">Sort Code: </span>
+                            <span className="font-medium text-foreground">{selectedTrainer.bank_sort_code}</span>
+                          </div>
+                        )}
+                        {selectedTrainer.bank_account_number && (
+                          <div>
+                            <span className="text-muted-foreground">Account: </span>
+                            <span className="font-medium text-foreground">{selectedTrainer.bank_account_number}</span>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   )}
 

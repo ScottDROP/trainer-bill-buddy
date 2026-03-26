@@ -337,10 +337,11 @@ export default function InvoicePreview() {
         <>
         {/* Pay Run Totals Summary */}
         {(() => {
+          type TrainerBreakdown = { name: string; trainerId: string; realHours: number; guarantee: number; management: number; vat: number; total: number };
+          const breakdowns: TrainerBreakdown[] = [];
           let totalRealHours = 0;
           let totalGuarantee = 0;
           let totalManagement = 0;
-          let totalManualItems = 0;
           let totalVat = 0;
 
           invoices.forEach((inv: any) => {
@@ -351,58 +352,117 @@ export default function InvoicePreview() {
 
             const guaranteeAmt = Number((trainer as any)?.guarantee_amount) || 0;
             const guaranteeTopUp = guaranteeAmt > 0 && sessionsSubtotal < guaranteeAmt ? guaranteeAmt - sessionsSubtotal : 0;
-
             const guaranteeSessions = Number((trainer as any)?.guarantee_sessions) || 0;
             const hourlyRate = Number(trainer?.default_hourly_rate) || 0;
             const sessionTopUp = guaranteeSessions > 0 && totalSessions < guaranteeSessions
               ? (guaranteeSessions - totalSessions) * hourlyRate : 0;
-
             const managementFee = Number((trainer as any)?.management_fee) || 0;
 
-            const invManualItems = manualLineItems.filter((li: any) => li.invoice_id === inv.id);
-            const manualTotal = invManualItems.reduce((s: number, li: any) => s + Number(li.amount), 0);
+            const trainerGuarantee = guaranteeTopUp + sessionTopUp;
 
             totalRealHours += sessionsSubtotal;
-            totalGuarantee += guaranteeTopUp + sessionTopUp;
+            totalGuarantee += trainerGuarantee;
             totalManagement += managementFee;
-            totalManualItems += manualTotal;
             totalVat += Number(inv.vat_amount);
+
+            breakdowns.push({
+              name: trainer?.full_name || "Unknown",
+              trainerId: inv.trainer_id,
+              realHours: sessionsSubtotal,
+              guarantee: trainerGuarantee,
+              management: managementFee,
+              vat: Number(inv.vat_amount),
+              total: Number(inv.total_due),
+            });
           });
 
           const grandTotal = invoices.reduce((s: number, inv: any) => s + Number(inv.total_due), 0);
 
+          const cards = [
+            { key: "hours", label: "Real Hours", value: totalRealHours, highlight: false },
+            { key: "guarantee", label: "Guarantee Top-ups", value: totalGuarantee, highlight: false },
+            { key: "management", label: "Management Fees", value: totalManagement, highlight: false },
+            { key: "vat", label: "VAT", value: totalVat, highlight: false },
+            { key: "total", label: "Total Pay Run", value: grandTotal, highlight: true },
+          ];
+
+          const filterKey = expandedSummary;
+          const filtered = filterKey
+            ? breakdowns.filter((b) => {
+                if (filterKey === "hours") return b.realHours > 0;
+                if (filterKey === "guarantee") return b.guarantee > 0;
+                if (filterKey === "management") return b.management > 0;
+                if (filterKey === "vat") return b.vat > 0;
+                return true;
+              })
+            : [];
+
+          const valueForRow = (b: TrainerBreakdown) => {
+            if (filterKey === "hours") return b.realHours;
+            if (filterKey === "guarantee") return b.guarantee;
+            if (filterKey === "management") return b.management;
+            if (filterKey === "vat") return b.vat;
+            return b.total;
+          };
+
+          const cardLabel = cards.find((c) => c.key === filterKey)?.label || "";
+
           return (
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-              <Card>
-                <CardContent className="p-4 text-center">
-                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Real Hours</p>
-                  <p className="text-lg font-bold text-foreground mt-1">{formatGBP(totalRealHours)}</p>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="p-4 text-center">
-                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Guarantee Top-ups</p>
-                  <p className="text-lg font-bold text-foreground mt-1">{formatGBP(totalGuarantee)}</p>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="p-4 text-center">
-                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Management Fees</p>
-                  <p className="text-lg font-bold text-foreground mt-1">{formatGBP(totalManagement)}</p>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="p-4 text-center">
-                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">VAT</p>
-                  <p className="text-lg font-bold text-foreground mt-1">{formatGBP(totalVat)}</p>
-                </CardContent>
-              </Card>
-              <Card className="border-primary">
-                <CardContent className="p-4 text-center">
-                  <p className="text-xs font-semibold uppercase tracking-wider text-primary">Total Pay Run</p>
-                  <p className="text-lg font-bold text-primary mt-1">{formatGBP(grandTotal)}</p>
-                </CardContent>
-              </Card>
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                {cards.map((card) => (
+                  <Card
+                    key={card.key}
+                    className={`cursor-pointer transition-all hover:shadow-md ${
+                      card.highlight ? "border-primary" : ""
+                    } ${expandedSummary === card.key ? "ring-2 ring-primary" : ""}`}
+                    onClick={() => setExpandedSummary(expandedSummary === card.key ? null : card.key)}
+                  >
+                    <CardContent className="p-4 text-center">
+                      <p className={`text-xs font-semibold uppercase tracking-wider ${card.highlight ? "text-primary" : "text-muted-foreground"}`}>
+                        {card.label}
+                      </p>
+                      <p className={`text-lg font-bold mt-1 ${card.highlight ? "text-primary" : "text-foreground"}`}>
+                        {formatGBP(card.value)}
+                      </p>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+
+              {expandedSummary && filtered.length > 0 && (
+                <Card>
+                  <CardContent className="p-0">
+                    <div className="px-4 py-3 border-b">
+                      <p className="text-sm font-semibold text-foreground">{cardLabel} — Breakdown by Trainer</p>
+                    </div>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Trainer</TableHead>
+                          <TableHead className="text-right">Amount</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {filtered
+                          .sort((a, b) => valueForRow(b) - valueForRow(a))
+                          .map((b) => (
+                          <TableRow key={b.trainerId}>
+                            <TableCell>
+                              <TrainerLink trainerId={b.trainerId} name={b.name} />
+                            </TableCell>
+                            <TableCell className="text-right font-medium">{formatGBP(valueForRow(b))}</TableCell>
+                          </TableRow>
+                        ))}
+                        <TableRow className="bg-muted/50 font-semibold">
+                          <TableCell>Total</TableCell>
+                          <TableCell className="text-right">{formatGBP(filtered.reduce((s, b) => s + valueForRow(b), 0))}</TableCell>
+                        </TableRow>
+                      </TableBody>
+                    </Table>
+                  </CardContent>
+                </Card>
+              )}
             </div>
           );
         })()}

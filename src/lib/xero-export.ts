@@ -89,10 +89,8 @@ export function buildXeroCSV(
     const hasVat = trainer.vat_number && trainer.vat_number.trim() !== "";
     const taxType = hasVat ? "20% (VAT on Expenses)" : "No VAT";
 
-    const terms = trainer.payment_terms || "Net 30";
-    const days = parseInt(terms.replace(/\D/g, "")) || 30;
-    const due = new Date(inv.invoice_date);
-    due.setDate(due.getDate() + days);
+    const invDate = new Date(inv.invoice_date);
+    const due = new Date(invDate.getFullYear(), invDate.getMonth(), 5);
     const dueDate = formatDateXero(due.toISOString());
     const invoiceDate = formatDateXero(inv.invoice_date);
 

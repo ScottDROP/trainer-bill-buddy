@@ -379,10 +379,8 @@ export default function InvoicePreview() {
                     <div>
                       <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Due Date</p>
                       <p className="font-medium text-foreground mt-0.5">{(() => {
-                        const terms = selectedTrainer.payment_terms || "Net 30";
-                        const days = parseInt(terms.replace(/\D/g, "")) || 30;
-                        const due = new Date(selectedInv.invoice_date);
-                        due.setDate(due.getDate() + days);
+                        const invDate = new Date(selectedInv.invoice_date);
+                        const due = new Date(invDate.getFullYear(), invDate.getMonth(), 5);
                         return due.toLocaleDateString("en-GB");
                       })()}</p>
                     </div>

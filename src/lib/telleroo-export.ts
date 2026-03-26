@@ -24,12 +24,15 @@ export function buildTellerooCSV(
     const trainer = trainers.find((t: any) => t.id === inv.trainer_id);
     if (!trainer) continue;
 
+    // Telleroo reference max 18 chars
+    const ref = inv.invoice_number.slice(0, 18);
+
     const row = [
       Number(inv.total_due).toFixed(2),
       trainer.full_name,
       (trainer.bank_account_number || "").replace(/\s/g, ""),
       (trainer.bank_sort_code || "").replace(/[-\s]/g, ""),
-      `${inv.invoice_number} - ${monthLabel}`,
+      ref,
     ];
     csvRows.push(row.map(escapeCSV).join(","));
   }

@@ -345,36 +345,51 @@ export default function InvoicePreview() {
 
           <div className="lg:col-span-2">
             {selectedInv && selectedTrainer ? (
-              <Card>
-                <CardContent className="p-8 font-mono text-sm">
-                  <h2 className="text-xl font-bold text-foreground mb-6">INVOICE</h2>
-
-                  <div className="grid grid-cols-2 gap-8 mb-6">
-                    <div>
-                      <p className="font-bold">Bill To:</p>
-                      <p>{companySettings?.name || "DropGym"}</p>
-                      {companySettings?.address && <p className="whitespace-pre-line">{companySettings.address}</p>}
+              <Card className="overflow-hidden">
+                <div className="bg-primary px-8 py-6">
+                  <div className="flex items-center justify-between">
+                    <h2 className="text-2xl font-bold text-primary-foreground tracking-wide">INVOICE</h2>
+                    <span className="text-primary-foreground/80 text-sm font-medium">{selectedInv.invoice_number}</span>
+                  </div>
+                </div>
+                <CardContent className="p-8 text-sm">
+                  <div className="grid grid-cols-2 gap-8 mb-8">
+                    <div className="space-y-1">
+                      <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">Bill To</p>
+                      <p className="font-semibold text-foreground">{companySettings?.name || "DropGym"}</p>
+                      {companySettings?.address && <p className="whitespace-pre-line text-muted-foreground text-xs leading-relaxed">{companySettings.address}</p>}
                     </div>
-                    <div>
-                      <p className="font-medium">
+                    <div className="space-y-1">
+                      <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">From</p>
+                      <p className="font-semibold text-foreground">
                         <TrainerLink trainerId={selectedTrainer.id} name={selectedTrainer.full_name} />
                       </p>
+                      {selectedTrainer.company_name && <p className="text-muted-foreground text-xs">{selectedTrainer.company_name}</p>}
                       {selectedTrainer.invoicing_address && (
-                        <p className="whitespace-pre-line">{selectedTrainer.invoicing_address}</p>
+                        <p className="whitespace-pre-line text-muted-foreground text-xs leading-relaxed">{selectedTrainer.invoicing_address}</p>
                       )}
                     </div>
                   </div>
 
-                  <div className="mb-6 space-y-1">
-                    <p>Invoice Number: {selectedInv.invoice_number}</p>
-                    <p>Invoice Date: {new Date(selectedInv.invoice_date).toLocaleDateString("en-GB")}</p>
-                    <p>Due Date: {(() => {
-                      const terms = selectedTrainer.payment_terms || "Net 30";
-                      const days = parseInt(terms.replace(/\D/g, "")) || 30;
-                      const due = new Date(selectedInv.invoice_date);
-                      due.setDate(due.getDate() + days);
-                      return due.toLocaleDateString("en-GB");
-                    })()}</p>
+                  <div className="flex gap-6 mb-8 p-4 rounded-lg bg-muted/50">
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Invoice Date</p>
+                      <p className="font-medium text-foreground mt-0.5">{new Date(selectedInv.invoice_date).toLocaleDateString("en-GB")}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Due Date</p>
+                      <p className="font-medium text-foreground mt-0.5">{(() => {
+                        const terms = selectedTrainer.payment_terms || "Net 30";
+                        const days = parseInt(terms.replace(/\D/g, "")) || 30;
+                        const due = new Date(selectedInv.invoice_date);
+                        due.setDate(due.getDate() + days);
+                        return due.toLocaleDateString("en-GB");
+                      })()}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Status</p>
+                      <p className="font-medium text-foreground mt-0.5 capitalize">{selectedInv.status}</p>
+                    </div>
                   </div>
 
                   <Table>

@@ -333,6 +333,79 @@ export default function InvoicePreview() {
           </CardContent>
         </Card>
       ) : (
+        <>
+        {/* Pay Run Totals Summary */}
+        {(() => {
+          let totalRealHours = 0;
+          let totalGuarantee = 0;
+          let totalManagement = 0;
+          let totalManualItems = 0;
+          let totalVat = 0;
+
+          invoices.forEach((inv: any) => {
+            const trainer = trainers.find((t: any) => t.id === inv.trainer_id);
+            const lineItems = allLineItems.filter((li: any) => li.pay_run_row_id === inv.pay_run_row_id);
+            const sessionsSubtotal = lineItems.reduce((s: number, li: any) => s + Number(li.amount), 0);
+            const totalSessions = lineItems.reduce((s: number, li: any) => s + Number(li.sessions), 0);
+
+            const guaranteeAmt = Number((trainer as any)?.guarantee_amount) || 0;
+            const guaranteeTopUp = guaranteeAmt > 0 && sessionsSubtotal < guaranteeAmt ? guaranteeAmt - sessionsSubtotal : 0;
+
+            const guaranteeSessions = Number((trainer as any)?.guarantee_sessions) || 0;
+            const hourlyRate = Number(trainer?.default_hourly_rate) || 0;
+            const sessionTopUp = guaranteeSessions > 0 && totalSessions < guaranteeSessions
+              ? (guaranteeSessions - totalSessions) * hourlyRate : 0;
+
+            const managementFee = Number((trainer as any)?.management_fee) || 0;
+
+            const invManualItems = manualLineItems.filter((li: any) => li.invoice_id === inv.id);
+            const manualTotal = invManualItems.reduce((s: number, li: any) => s + Number(li.amount), 0);
+
+            totalRealHours += sessionsSubtotal;
+            totalGuarantee += guaranteeTopUp + sessionTopUp;
+            totalManagement += managementFee;
+            totalManualItems += manualTotal;
+            totalVat += Number(inv.vat_amount);
+          });
+
+          const grandTotal = invoices.reduce((s: number, inv: any) => s + Number(inv.total_due), 0);
+
+          return (
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+              <Card>
+                <CardContent className="p-4 text-center">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Real Hours</p>
+                  <p className="text-lg font-bold text-foreground mt-1">{formatGBP(totalRealHours)}</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="p-4 text-center">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Guarantee Top-ups</p>
+                  <p className="text-lg font-bold text-foreground mt-1">{formatGBP(totalGuarantee)}</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="p-4 text-center">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Management Fees</p>
+                  <p className="text-lg font-bold text-foreground mt-1">{formatGBP(totalManagement)}</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="p-4 text-center">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">VAT</p>
+                  <p className="text-lg font-bold text-foreground mt-1">{formatGBP(totalVat)}</p>
+                </CardContent>
+              </Card>
+              <Card className="border-primary">
+                <CardContent className="p-4 text-center">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-primary">Total Pay Run</p>
+                  <p className="text-lg font-bold text-primary mt-1">{formatGBP(grandTotal)}</p>
+                </CardContent>
+              </Card>
+            </div>
+          );
+        })()}
+
         <div className="grid gap-6 lg:grid-cols-3">
           <div className="space-y-2">
             <p className="text-sm font-medium text-muted-foreground mb-3">{invoices.length} invoices</p>

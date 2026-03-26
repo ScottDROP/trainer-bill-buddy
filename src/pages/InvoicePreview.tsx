@@ -315,6 +315,7 @@ export default function InvoicePreview() {
               >
                 <Download className="mr-2 h-4 w-4" />
                 Export for Telleroo
+              </Button>
               <Button onClick={() => sendAllMutation.mutate()} disabled={sendAllMutation.isPending}>
                 <Send className="mr-2 h-4 w-4" />
                 {sendAllMutation.isPending ? "Sending..." : "Send All Invoices"}

@@ -7,6 +7,7 @@ import {
   FileText,
   Dumbbell,
   BarChart3,
+  TrendingUp,
   LogOut,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
@@ -45,6 +46,7 @@ export function AppSidebar() {
     { title: "Upload Pay Run", url: "/upload", icon: Upload, show: hasPermission("upload_pay_run") },
     { title: "Pay Runs", url: "/pay-runs", icon: FileText, show: true },
     { title: "Reports", url: "/reports", icon: BarChart3, show: hasPermission("view_reports") },
+    { title: "Analytics", url: "/analytics", icon: TrendingUp, show: hasPermission("view_reports") },
   ];
 
   const settingsItems = [

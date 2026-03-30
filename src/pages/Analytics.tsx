@@ -136,13 +136,13 @@ export default function Analytics() {
     if (Math.abs(change) < 0.5) return <Minus className="h-4 w-4 text-muted-foreground" />;
     if (change > 0)
       return (
-        <span className="flex items-center gap-1 text-xs text-red-600">
+        <span className="flex items-center gap-1 text-xs text-destructive">
           <ArrowUpRight className="h-3 w-3" />
           +{change.toFixed(1)}%
         </span>
       );
     return (
-      <span className="flex items-center gap-1 text-xs text-green-600">
+      <span className="flex items-center gap-1 text-xs text-primary">
         <ArrowDownRight className="h-3 w-3" />
         {change.toFixed(1)}%
       </span>

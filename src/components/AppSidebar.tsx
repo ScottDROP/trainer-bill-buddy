@@ -7,6 +7,7 @@ import {
   FileText,
   Dumbbell,
   BarChart3,
+  TrendingUp,
   LogOut,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";

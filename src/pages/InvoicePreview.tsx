@@ -9,9 +9,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 import { formatGBP, formatMonth } from "@/lib/currency";
-import { FileText, Download, Send, Plus, Trash2 } from "lucide-react";
+import { FileText, Download, Send, Plus, Trash2, Users } from "lucide-react";
 import { buildXeroCSV, downloadCSV } from "@/lib/xero-export";
 import { buildTellerooCSV } from "@/lib/telleroo-export";
+import { StaffPayRunView } from "@/components/StaffPayRunView";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useState } from "react";
 
 export default function InvoicePreview() {

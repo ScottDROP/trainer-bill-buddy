@@ -324,6 +324,112 @@ export type Database = {
         }
         Relationships: []
       }
+      staff_pay_run_rows: {
+        Row: {
+          created_at: string
+          employee_name: string
+          employee_number: string | null
+          gross_pay: number
+          id: string
+          net_pay: number
+          ni_employee: number
+          ni_employer: number
+          ni_letter: string | null
+          pension: number
+          staff_pay_run_id: string
+          tax: number
+          tax_code: string | null
+        }
+        Insert: {
+          created_at?: string
+          employee_name: string
+          employee_number?: string | null
+          gross_pay?: number
+          id?: string
+          net_pay?: number
+          ni_employee?: number
+          ni_employer?: number
+          ni_letter?: string | null
+          pension?: number
+          staff_pay_run_id: string
+          tax?: number
+          tax_code?: string | null
+        }
+        Update: {
+          created_at?: string
+          employee_name?: string
+          employee_number?: string | null
+          gross_pay?: number
+          id?: string
+          net_pay?: number
+          ni_employee?: number
+          ni_employer?: number
+          ni_letter?: string | null
+          pension?: number
+          staff_pay_run_id?: string
+          tax?: number
+          tax_code?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_pay_run_rows_staff_pay_run_id_fkey"
+            columns: ["staff_pay_run_id"]
+            isOneToOne: false
+            referencedRelation: "staff_pay_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      staff_pay_runs: {
+        Row: {
+          created_at: string
+          employee_count: number
+          id: string
+          pay_run_id: string
+          pdf_file_path: string | null
+          total_gross: number
+          total_net: number
+          total_ni: number
+          total_pension: number
+          total_tax: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          employee_count?: number
+          id?: string
+          pay_run_id: string
+          pdf_file_path?: string | null
+          total_gross?: number
+          total_net?: number
+          total_ni?: number
+          total_pension?: number
+          total_tax?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          employee_count?: number
+          id?: string
+          pay_run_id?: string
+          pdf_file_path?: string | null
+          total_gross?: number
+          total_net?: number
+          total_ni?: number
+          total_pension?: number
+          total_tax?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_pay_runs_pay_run_id_fkey"
+            columns: ["pay_run_id"]
+            isOneToOne: true
+            referencedRelation: "pay_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       trainers: {
         Row: {
           aliases: string[] | null

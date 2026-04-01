@@ -392,13 +392,18 @@ export default function InvoicePreview() {
           });
 
           const grandTotal = invoices.reduce((s: number, inv: any) => s + Number(inv.total_due), 0);
+          const staffNetPay = Number(staffPayRun?.total_net) || 0;
+          const staffGrossPay = Number(staffPayRun?.total_gross) || 0;
+          const combinedTotal = grandTotal + staffNetPay;
 
           const cards = [
             { key: "hours", label: "Real Hours", value: totalRealHours, highlight: false },
             { key: "guarantee", label: "Guarantee Top-ups", value: totalGuarantee, highlight: false },
             { key: "management", label: "Management Fees", value: totalManagement, highlight: false },
             { key: "vat", label: "VAT", value: totalVat, highlight: false },
-            { key: "total", label: "Total Pay Run", value: grandTotal, highlight: true },
+            { key: "trainertotal", label: "Trainer Total", value: grandTotal, highlight: false },
+            ...(staffPayRun ? [{ key: "staff", label: "Staff Net Pay", value: staffNetPay, highlight: false }] : []),
+            { key: "total", label: "Combined Total", value: combinedTotal, highlight: true },
           ];
 
           const filterKey = expandedSummary;

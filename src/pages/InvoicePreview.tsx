@@ -84,6 +84,19 @@ export default function InvoicePreview() {
     enabled: rows.length > 0,
   });
 
+  // Staff pay run data
+  const { data: staffPayRun } = useQuery({
+    queryKey: ["staff-pay-run", id],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("staff_pay_runs")
+        .select("*")
+        .eq("pay_run_id", id!)
+        .maybeSingle();
+      return data;
+    },
+  });
+
   // Manual invoice line items
   const invoiceIds = invoices.map((inv: any) => inv.id);
   const { data: manualLineItems = [] } = useQuery({

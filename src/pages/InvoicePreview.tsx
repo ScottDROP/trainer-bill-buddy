@@ -429,7 +429,7 @@ export default function InvoicePreview() {
 
           return (
             <div className="space-y-4">
-              <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
                 {cards.map((card) => (
                   <Card
                     key={card.key}

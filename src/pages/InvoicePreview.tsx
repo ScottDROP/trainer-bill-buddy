@@ -9,9 +9,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 import { formatGBP, formatMonth } from "@/lib/currency";
-import { FileText, Download, Send, Plus, Trash2 } from "lucide-react";
+import { FileText, Download, Send, Plus, Trash2, Users } from "lucide-react";
 import { buildXeroCSV, downloadCSV } from "@/lib/xero-export";
 import { buildTellerooCSV } from "@/lib/telleroo-export";
+import { StaffPayRunView } from "@/components/StaffPayRunView";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useState } from "react";
 
 export default function InvoicePreview() {
@@ -80,6 +82,19 @@ export default function InvoicePreview() {
       return data ?? [];
     },
     enabled: rows.length > 0,
+  });
+
+  // Staff pay run data
+  const { data: staffPayRun } = useQuery({
+    queryKey: ["staff-pay-run", id],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("staff_pay_runs")
+        .select("*")
+        .eq("pay_run_id", id!)
+        .maybeSingle();
+      return data;
+    },
   });
 
   // Manual invoice line items
@@ -377,13 +392,18 @@ export default function InvoicePreview() {
           });
 
           const grandTotal = invoices.reduce((s: number, inv: any) => s + Number(inv.total_due), 0);
+          const staffNetPay = Number(staffPayRun?.total_net) || 0;
+          const staffGrossPay = Number(staffPayRun?.total_gross) || 0;
+          const combinedTotal = grandTotal + staffNetPay;
 
           const cards = [
             { key: "hours", label: "Real Hours", value: totalRealHours, highlight: false },
             { key: "guarantee", label: "Guarantee Top-ups", value: totalGuarantee, highlight: false },
             { key: "management", label: "Management Fees", value: totalManagement, highlight: false },
             { key: "vat", label: "VAT", value: totalVat, highlight: false },
-            { key: "total", label: "Total Pay Run", value: grandTotal, highlight: true },
+            { key: "trainertotal", label: "Trainer Total", value: grandTotal, highlight: false },
+            ...(staffPayRun ? [{ key: "staff", label: "Staff Net Pay", value: staffNetPay, highlight: false }] : []),
+            { key: "total", label: "Combined Total", value: combinedTotal, highlight: true },
           ];
 
           const filterKey = expandedSummary;
@@ -409,7 +429,7 @@ export default function InvoicePreview() {
 
           return (
             <div className="space-y-4">
-              <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
                 {cards.map((card) => (
                   <Card
                     key={card.key}
@@ -467,289 +487,305 @@ export default function InvoicePreview() {
           );
         })()}
 
-        <div className="grid gap-6 lg:grid-cols-3">
-          <div className="space-y-2">
-            <p className="text-sm font-medium text-muted-foreground mb-3">{invoices.length} invoices</p>
-            {invoices.map((inv: any) => {
-              const trainer = trainers.find((t: any) => t.id === inv.trainer_id);
-              return (
-                <div
-                  key={inv.id}
-                  className={`rounded-lg border p-3 cursor-pointer transition-colors ${
-                    selectedInvoice === inv.id ? "border-primary bg-primary/5" : "border-border hover:bg-muted/50"
-                  }`}
-                  onClick={() => setSelectedInvoice(inv.id)}
-                >
-                  <p className="font-medium text-sm">
-                    {trainer ? <TrainerLink trainerId={trainer.id} name={trainer.full_name} /> : "Unknown"}
-                  </p>
-                  <div className="flex items-center justify-between mt-1">
-                    <span className="text-xs text-muted-foreground">{inv.invoice_number}</span>
-                    <span className="text-sm font-medium">{formatGBP(inv.total_due)}</span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+        <Tabs defaultValue="trainers" className="w-full">
+          <TabsList>
+            <TabsTrigger value="trainers">Trainer Invoices ({invoices.length})</TabsTrigger>
+            <TabsTrigger value="staff" className="gap-1">
+              <Users className="h-3.5 w-3.5" />
+              Full-Time Staff
+            </TabsTrigger>
+          </TabsList>
 
-          <div className="lg:col-span-2">
-            {selectedInv && selectedTrainer ? (
-              <Card className="overflow-hidden">
-                <div className="bg-primary px-8 py-6">
-                  <div className="flex items-center justify-between">
-                    <h2 className="text-2xl font-bold text-primary-foreground tracking-wide">INVOICE</h2>
-                    <span className="text-primary-foreground/80 text-sm font-medium">{selectedInv.invoice_number}</span>
-                  </div>
-                </div>
-                <CardContent className="p-8 text-sm">
-                  <div className="grid grid-cols-2 gap-8 mb-8">
-                    <div className="space-y-1">
-                      <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">Bill To</p>
-                      <p className="font-semibold text-foreground">{companySettings?.name || "DropGym"}</p>
-                      {companySettings?.address && <p className="whitespace-pre-line text-muted-foreground text-xs leading-relaxed">{companySettings.address}</p>}
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">From</p>
-                      <p className="font-semibold text-foreground">
-                        <TrainerLink trainerId={selectedTrainer.id} name={selectedTrainer.full_name} />
+          <TabsContent value="trainers" className="mt-4">
+            <div className="grid gap-6 lg:grid-cols-3">
+              <div className="space-y-2">
+                <p className="text-sm font-medium text-muted-foreground mb-3">{invoices.length} invoices</p>
+                {invoices.map((inv: any) => {
+                  const trainer = trainers.find((t: any) => t.id === inv.trainer_id);
+                  return (
+                    <div
+                      key={inv.id}
+                      className={`rounded-lg border p-3 cursor-pointer transition-colors ${
+                        selectedInvoice === inv.id ? "border-primary bg-primary/5" : "border-border hover:bg-muted/50"
+                      }`}
+                      onClick={() => setSelectedInvoice(inv.id)}
+                    >
+                      <p className="font-medium text-sm">
+                        {trainer ? <TrainerLink trainerId={trainer.id} name={trainer.full_name} /> : "Unknown"}
                       </p>
-                      {selectedTrainer.company_name && <p className="text-muted-foreground text-xs">{selectedTrainer.company_name}</p>}
-                      {selectedTrainer.invoicing_address && (
-                        <p className="whitespace-pre-line text-muted-foreground text-xs leading-relaxed">{selectedTrainer.invoicing_address}</p>
+                      <div className="flex items-center justify-between mt-1">
+                        <span className="text-xs text-muted-foreground">{inv.invoice_number}</span>
+                        <span className="text-sm font-medium">{formatGBP(inv.total_due)}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="lg:col-span-2">
+                {selectedInv && selectedTrainer ? (
+                  <Card className="overflow-hidden">
+                    <div className="bg-primary px-8 py-6">
+                      <div className="flex items-center justify-between">
+                        <h2 className="text-2xl font-bold text-primary-foreground tracking-wide">INVOICE</h2>
+                        <span className="text-primary-foreground/80 text-sm font-medium">{selectedInv.invoice_number}</span>
+                      </div>
+                    </div>
+                    <CardContent className="p-8 text-sm">
+                      <div className="grid grid-cols-2 gap-8 mb-8">
+                        <div className="space-y-1">
+                          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">Bill To</p>
+                          <p className="font-semibold text-foreground">{companySettings?.name || "DropGym"}</p>
+                          {companySettings?.address && <p className="whitespace-pre-line text-muted-foreground text-xs leading-relaxed">{companySettings.address}</p>}
+                        </div>
+                        <div className="space-y-1">
+                          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">From</p>
+                          <p className="font-semibold text-foreground">
+                            <TrainerLink trainerId={selectedTrainer.id} name={selectedTrainer.full_name} />
+                          </p>
+                          {selectedTrainer.company_name && <p className="text-muted-foreground text-xs">{selectedTrainer.company_name}</p>}
+                          {selectedTrainer.invoicing_address && (
+                            <p className="whitespace-pre-line text-muted-foreground text-xs leading-relaxed">{selectedTrainer.invoicing_address}</p>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="flex gap-6 mb-8 p-4 rounded-lg bg-muted/50">
+                        <div>
+                          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Invoice Date</p>
+                          <p className="font-medium text-foreground mt-0.5">{new Date(selectedInv.invoice_date).toLocaleDateString("en-GB")}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Due Date</p>
+                          <p className="font-medium text-foreground mt-0.5">{(() => {
+                            const invDate = new Date(selectedInv.invoice_date);
+                            const due = new Date(invDate.getFullYear(), invDate.getMonth(), 5);
+                            return due.toLocaleDateString("en-GB");
+                          })()}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Status</p>
+                          <p className="font-medium text-foreground mt-0.5 capitalize">{selectedInv.status}</p>
+                        </div>
+                      </div>
+
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="w-16">Qty</TableHead>
+                            <TableHead>Description</TableHead>
+                            <TableHead className="text-right">Unit Price</TableHead>
+                            <TableHead className="text-right">Amount</TableHead>
+                            <TableHead className="w-10"></TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {selectedLineItems.map((li: any) => (
+                            <TableRow key={li.id}>
+                              <TableCell>{li.sessions}</TableCell>
+                              <TableCell>PT Sessions at {li.location_name}</TableCell>
+                              <TableCell className="text-right">{formatGBP(li.rate)}</TableCell>
+                              <TableCell className="text-right">{formatGBP(li.amount)}</TableCell>
+                              <TableCell></TableCell>
+                            </TableRow>
+                          ))}
+                          {(() => {
+                            const sessionsTotal = selectedLineItems.reduce((s: number, li: any) => s + Number(li.amount), 0);
+                            const totalSessions = selectedLineItems.reduce((s: number, li: any) => s + Number(li.sessions), 0);
+                            const guarantee = Number((selectedTrainer as any)?.guarantee_amount) || 0;
+                            const amountTopUp = guarantee > 0 && sessionsTotal < guarantee ? guarantee - sessionsTotal : 0;
+                            const guaranteeSessions = Number((selectedTrainer as any)?.guarantee_sessions) || 0;
+                            const hourlyRate = Number(selectedTrainer?.default_hourly_rate) || 0;
+                            const missingSessions = guaranteeSessions > 0 && totalSessions < guaranteeSessions ? guaranteeSessions - totalSessions : 0;
+                            const sessionTopUp = missingSessions * hourlyRate;
+                            return (
+                              <>
+                                {amountTopUp > 0 && (
+                                  <TableRow>
+                                    <TableCell>1</TableCell>
+                                    <TableCell>Guarantee Top-Up (Amount)</TableCell>
+                                    <TableCell className="text-right">{formatGBP(amountTopUp)}</TableCell>
+                                    <TableCell className="text-right">{formatGBP(amountTopUp)}</TableCell>
+                                    <TableCell></TableCell>
+                                  </TableRow>
+                                )}
+                                {sessionTopUp > 0 && (
+                                  <TableRow>
+                                    <TableCell>{missingSessions}</TableCell>
+                                    <TableCell>Guarantee Top-Up (Sessions)</TableCell>
+                                    <TableCell className="text-right">{formatGBP(hourlyRate)}</TableCell>
+                                    <TableCell className="text-right">{formatGBP(sessionTopUp)}</TableCell>
+                                    <TableCell></TableCell>
+                                  </TableRow>
+                                )}
+                                {(() => {
+                                  const mgmtFee = Number((selectedTrainer as any)?.management_fee) || 0;
+                                  if (mgmtFee <= 0) return null;
+                                  return (
+                                    <TableRow>
+                                      <TableCell>1</TableCell>
+                                      <TableCell>Management Fee</TableCell>
+                                      <TableCell className="text-right">{formatGBP(mgmtFee)}</TableCell>
+                                      <TableCell className="text-right">{formatGBP(mgmtFee)}</TableCell>
+                                      <TableCell></TableCell>
+                                    </TableRow>
+                                  );
+                                })()}
+                              </>
+                            );
+                          })()}
+                          {/* Manual line items */}
+                          {selectedManualItems.map((li: any) => (
+                            <TableRow key={li.id} className="bg-muted/30">
+                              <TableCell>{li.quantity}</TableCell>
+                              <TableCell>{li.description}</TableCell>
+                              <TableCell className="text-right">{formatGBP(li.unit_price)}</TableCell>
+                              <TableCell className="text-right">{formatGBP(li.amount)}</TableCell>
+                              <TableCell>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-6 w-6 text-destructive hover:text-destructive"
+                                  onClick={() => removeManualItemMutation.mutate({ itemId: li.id, invoiceId: selectedInv.id })}
+                                  disabled={removeManualItemMutation.isPending}
+                                >
+                                  <Trash2 className="h-3 w-3" />
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                          {/* Add new item row */}
+                          <TableRow className="border-dashed">
+                            <TableCell>
+                              <Input
+                                className="h-7 w-14 text-xs font-mono"
+                                type="number"
+                                min="1"
+                                value={newItem.quantity}
+                                onChange={(e) => setNewItem({ ...newItem, quantity: e.target.value })}
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <Input
+                                className="h-7 text-xs font-mono"
+                                placeholder="Description"
+                                value={newItem.description}
+                                onChange={(e) => setNewItem({ ...newItem, description: e.target.value })}
+                              />
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <Input
+                                className="h-7 w-24 text-xs font-mono text-right ml-auto"
+                                type="number"
+                                step="0.01"
+                                placeholder="0.00"
+                                value={newItem.unitPrice}
+                                onChange={(e) => setNewItem({ ...newItem, unitPrice: e.target.value })}
+                              />
+                            </TableCell>
+                            <TableCell className="text-right text-xs text-muted-foreground">
+                              {newItem.unitPrice ? formatGBP((parseFloat(newItem.quantity) || 1) * (parseFloat(newItem.unitPrice) || 0)) : "—"}
+                            </TableCell>
+                            <TableCell>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6 text-primary"
+                                disabled={!newItem.description || !newItem.unitPrice || addManualItemMutation.isPending}
+                                onClick={() => {
+                                  const qty = parseFloat(newItem.quantity) || 1;
+                                  const price = parseFloat(newItem.unitPrice) || 0;
+                                  addManualItemMutation.mutate({
+                                    invoiceId: selectedInv.id,
+                                    description: newItem.description,
+                                    quantity: qty,
+                                    unitPrice: price,
+                                  });
+                                  setNewItem({ description: "", quantity: "1", unitPrice: "" });
+                                }}
+                              >
+                                <Plus className="h-3 w-3" />
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        </TableBody>
+                      </Table>
+
+                      <div className="mt-6 flex justify-end">
+                        <div className="w-64 space-y-2 text-sm">
+                          <div className="flex justify-between text-muted-foreground">
+                            <span>Subtotal</span>
+                            <span className="font-medium text-foreground">{formatGBP(selectedInv.subtotal)}</span>
+                          </div>
+                          <div className="flex justify-between text-muted-foreground">
+                            <span>VAT @ {selectedInv.vat_amount > 0 ? "20%" : "0%"}</span>
+                            <span className="font-medium text-foreground">{formatGBP(selectedInv.vat_amount)}</span>
+                          </div>
+                          <Separator />
+                          <div className="flex justify-between text-base font-bold text-foreground pt-1">
+                            <span>Total Due</span>
+                            <span>{formatGBP(selectedInv.total_due)}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {(selectedTrainer.bank_account_number || selectedTrainer.bank_sort_code) && (
+                        <div className="mt-8 p-4 rounded-lg bg-muted/50 border border-border">
+                          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">Payment Details</p>
+                          <div className="flex gap-6 text-sm">
+                            {selectedTrainer.bank_sort_code && (
+                              <div>
+                                <span className="text-muted-foreground">Sort Code: </span>
+                                <span className="font-medium text-foreground">{selectedTrainer.bank_sort_code}</span>
+                              </div>
+                            )}
+                            {selectedTrainer.bank_account_number && (
+                              <div>
+                                <span className="text-muted-foreground">Account: </span>
+                                <span className="font-medium text-foreground">{selectedTrainer.bank_account_number}</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
                       )}
-                    </div>
-                  </div>
 
-                  <div className="flex gap-6 mb-8 p-4 rounded-lg bg-muted/50">
-                    <div>
-                      <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Invoice Date</p>
-                      <p className="font-medium text-foreground mt-0.5">{new Date(selectedInv.invoice_date).toLocaleDateString("en-GB")}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Due Date</p>
-                      <p className="font-medium text-foreground mt-0.5">{(() => {
-                        const invDate = new Date(selectedInv.invoice_date);
-                        const due = new Date(invDate.getFullYear(), invDate.getMonth(), 5);
-                        return due.toLocaleDateString("en-GB");
-                      })()}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Status</p>
-                      <p className="font-medium text-foreground mt-0.5 capitalize">{selectedInv.status}</p>
-                    </div>
-                  </div>
-
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="w-16">Qty</TableHead>
-                        <TableHead>Description</TableHead>
-                        <TableHead className="text-right">Unit Price</TableHead>
-                        <TableHead className="text-right">Amount</TableHead>
-                        <TableHead className="w-10"></TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {selectedLineItems.map((li: any) => (
-                        <TableRow key={li.id}>
-                          <TableCell>{li.sessions}</TableCell>
-                          <TableCell>PT Sessions at {li.location_name}</TableCell>
-                          <TableCell className="text-right">{formatGBP(li.rate)}</TableCell>
-                          <TableCell className="text-right">{formatGBP(li.amount)}</TableCell>
-                          <TableCell></TableCell>
-                        </TableRow>
-                      ))}
-                      {(() => {
-                        const sessionsTotal = selectedLineItems.reduce((s: number, li: any) => s + Number(li.amount), 0);
-                        const totalSessions = selectedLineItems.reduce((s: number, li: any) => s + Number(li.sessions), 0);
-                        const guarantee = Number((selectedTrainer as any)?.guarantee_amount) || 0;
-                        const amountTopUp = guarantee > 0 && sessionsTotal < guarantee ? guarantee - sessionsTotal : 0;
-                        const guaranteeSessions = Number((selectedTrainer as any)?.guarantee_sessions) || 0;
-                        const hourlyRate = Number(selectedTrainer?.default_hourly_rate) || 0;
-                        const missingSessions = guaranteeSessions > 0 && totalSessions < guaranteeSessions ? guaranteeSessions - totalSessions : 0;
-                        const sessionTopUp = missingSessions * hourlyRate;
-                        return (
-                          <>
-                            {amountTopUp > 0 && (
-                              <TableRow>
-                                <TableCell>1</TableCell>
-                                <TableCell>Guarantee Top-Up (Amount)</TableCell>
-                                <TableCell className="text-right">{formatGBP(amountTopUp)}</TableCell>
-                                <TableCell className="text-right">{formatGBP(amountTopUp)}</TableCell>
-                                <TableCell></TableCell>
-                              </TableRow>
-                            )}
-                            {sessionTopUp > 0 && (
-                              <TableRow>
-                                <TableCell>{missingSessions}</TableCell>
-                                <TableCell>Guarantee Top-Up (Sessions)</TableCell>
-                                <TableCell className="text-right">{formatGBP(hourlyRate)}</TableCell>
-                                <TableCell className="text-right">{formatGBP(sessionTopUp)}</TableCell>
-                                <TableCell></TableCell>
-                              </TableRow>
-                            )}
-                            {(() => {
-                              const mgmtFee = Number((selectedTrainer as any)?.management_fee) || 0;
-                              if (mgmtFee <= 0) return null;
-                              return (
-                                <TableRow>
-                                  <TableCell>1</TableCell>
-                                  <TableCell>Management Fee</TableCell>
-                                  <TableCell className="text-right">{formatGBP(mgmtFee)}</TableCell>
-                                  <TableCell className="text-right">{formatGBP(mgmtFee)}</TableCell>
-                                  <TableCell></TableCell>
-                                </TableRow>
-                              );
-                            })()}
-                          </>
-                        );
-                      })()}
-                      {/* Manual line items */}
-                      {selectedManualItems.map((li: any) => (
-                        <TableRow key={li.id} className="bg-muted/30">
-                          <TableCell>{li.quantity}</TableCell>
-                          <TableCell>{li.description}</TableCell>
-                          <TableCell className="text-right">{formatGBP(li.unit_price)}</TableCell>
-                          <TableCell className="text-right">{formatGBP(li.amount)}</TableCell>
-                          <TableCell>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-6 w-6 text-destructive hover:text-destructive"
-                              onClick={() => removeManualItemMutation.mutate({ itemId: li.id, invoiceId: selectedInv.id })}
-                              disabled={removeManualItemMutation.isPending}
-                            >
-                              <Trash2 className="h-3 w-3" />
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                      {/* Add new item row */}
-                      <TableRow className="border-dashed">
-                        <TableCell>
-                          <Input
-                            className="h-7 w-14 text-xs font-mono"
-                            type="number"
-                            min="1"
-                            value={newItem.quantity}
-                            onChange={(e) => setNewItem({ ...newItem, quantity: e.target.value })}
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Input
-                            className="h-7 text-xs font-mono"
-                            placeholder="Description"
-                            value={newItem.description}
-                            onChange={(e) => setNewItem({ ...newItem, description: e.target.value })}
-                          />
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <Input
-                            className="h-7 w-24 text-xs font-mono text-right ml-auto"
-                            type="number"
-                            step="0.01"
-                            placeholder="0.00"
-                            value={newItem.unitPrice}
-                            onChange={(e) => setNewItem({ ...newItem, unitPrice: e.target.value })}
-                          />
-                        </TableCell>
-                        <TableCell className="text-right text-xs text-muted-foreground">
-                          {newItem.unitPrice ? formatGBP((parseFloat(newItem.quantity) || 1) * (parseFloat(newItem.unitPrice) || 0)) : "—"}
-                        </TableCell>
-                        <TableCell>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-6 w-6 text-primary"
-                            disabled={!newItem.description || !newItem.unitPrice || addManualItemMutation.isPending}
-                            onClick={() => {
-                              const qty = parseFloat(newItem.quantity) || 1;
-                              const price = parseFloat(newItem.unitPrice) || 0;
-                              addManualItemMutation.mutate({
-                                invoiceId: selectedInv.id,
-                                description: newItem.description,
-                                quantity: qty,
-                                unitPrice: price,
-                              });
-                              setNewItem({ description: "", quantity: "1", unitPrice: "" });
-                            }}
-                          >
-                            <Plus className="h-3 w-3" />
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    </TableBody>
-                  </Table>
-
-                  <div className="mt-6 flex justify-end">
-                    <div className="w-64 space-y-2 text-sm">
-                      <div className="flex justify-between text-muted-foreground">
-                        <span>Subtotal</span>
-                        <span className="font-medium text-foreground">{formatGBP(selectedInv.subtotal)}</span>
+                      <Separator className="my-6" />
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={sendSingleMutation.isPending}
+                          onClick={() => sendSingleMutation.mutate({ invoiceId: selectedInv.id, testEmail: "scott@dropgym.io" })}
+                        >
+                          <Send className="mr-2 h-4 w-4" />
+                          {sendSingleMutation.isPending ? "Sending..." : "Send Test to Me"}
+                        </Button>
+                        <Button
+                          size="sm"
+                          disabled={sendSingleMutation.isPending}
+                          onClick={() => sendSingleMutation.mutate({ invoiceId: selectedInv.id })}
+                        >
+                          <Send className="mr-2 h-4 w-4" />
+                          {sendSingleMutation.isPending ? "Sending..." : "Send to Trainer"}
+                        </Button>
                       </div>
-                      <div className="flex justify-between text-muted-foreground">
-                        <span>VAT @ {selectedInv.vat_amount > 0 ? "20%" : "0%"}</span>
-                        <span className="font-medium text-foreground">{formatGBP(selectedInv.vat_amount)}</span>
-                      </div>
-                      <Separator />
-                      <div className="flex justify-between text-base font-bold text-foreground pt-1">
-                        <span>Total Due</span>
-                        <span>{formatGBP(selectedInv.total_due)}</span>
-                      </div>
-                    </div>
-                  </div>
+                    </CardContent>
+                  </Card>
+                ) : (
+                  <Card>
+                    <CardContent className="p-8 text-center text-muted-foreground">
+                      Select an invoice to preview.
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+            </div>
+          </TabsContent>
 
-                  {(selectedTrainer.bank_account_number || selectedTrainer.bank_sort_code) && (
-                    <div className="mt-8 p-4 rounded-lg bg-muted/50 border border-border">
-                      <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">Payment Details</p>
-                      <div className="flex gap-6 text-sm">
-                        {selectedTrainer.bank_sort_code && (
-                          <div>
-                            <span className="text-muted-foreground">Sort Code: </span>
-                            <span className="font-medium text-foreground">{selectedTrainer.bank_sort_code}</span>
-                          </div>
-                        )}
-                        {selectedTrainer.bank_account_number && (
-                          <div>
-                            <span className="text-muted-foreground">Account: </span>
-                            <span className="font-medium text-foreground">{selectedTrainer.bank_account_number}</span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  <Separator className="my-6" />
-                  <div className="flex gap-2">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      disabled={sendSingleMutation.isPending}
-                      onClick={() => sendSingleMutation.mutate({ invoiceId: selectedInv.id, testEmail: "scott@dropgym.io" })}
-                    >
-                      <Send className="mr-2 h-4 w-4" />
-                      {sendSingleMutation.isPending ? "Sending..." : "Send Test to Me"}
-                    </Button>
-                    <Button
-                      size="sm"
-                      disabled={sendSingleMutation.isPending}
-                      onClick={() => sendSingleMutation.mutate({ invoiceId: selectedInv.id })}
-                    >
-                      <Send className="mr-2 h-4 w-4" />
-                      {sendSingleMutation.isPending ? "Sending..." : `Send to ${selectedTrainer.email || "Trainer"}`}
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ) : (
-              <Card>
-                <CardContent className="p-8 text-center text-muted-foreground">
-                  Select an invoice to preview.
-                </CardContent>
-              </Card>
-            )}
-          </div>
-        </div>
+          <TabsContent value="staff" className="mt-4">
+            <StaffPayRunView payRunId={id!} />
+          </TabsContent>
+        </Tabs>
         </>
       )}
     </div>

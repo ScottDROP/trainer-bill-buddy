@@ -117,11 +117,11 @@ export function SupplierInvoicesTab() {
         <div className="flex gap-4">
           <Card className="px-4 py-3">
             <p className="text-xs text-muted-foreground">Pending</p>
-            <p className="text-lg font-bold text-orange-600">{formatCurrency(totalPending)}</p>
+            <p className="text-lg font-bold text-orange-600">{formatGBP(totalPending)}</p>
           </Card>
           <Card className="px-4 py-3">
             <p className="text-xs text-muted-foreground">Paid</p>
-            <p className="text-lg font-bold text-green-600">{formatCurrency(totalPaid)}</p>
+            <p className="text-lg font-bold text-green-600">{formatGBP(totalPaid)}</p>
           </Card>
         </div>
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
@@ -199,7 +199,7 @@ export function SupplierInvoicesTab() {
                     <TableCell>{inv.invoice_number || "—"}</TableCell>
                     <TableCell>{new Date(inv.invoice_date).toLocaleDateString("en-GB")}</TableCell>
                     <TableCell>{inv.due_date ? new Date(inv.due_date).toLocaleDateString("en-GB") : "—"}</TableCell>
-                    <TableCell className="text-right font-medium">{formatCurrency(Number(inv.amount))}</TableCell>
+                    <TableCell className="text-right font-medium">{formatGBP(Number(inv.amount))}</TableCell>
                     <TableCell>
                       <Badge variant={inv.status === "paid" ? "default" : "secondary"}>
                         {inv.status}

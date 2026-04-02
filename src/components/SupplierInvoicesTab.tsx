@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Textarea } from "@/components/ui/textarea";
 import { Plus, Upload, FileText, Trash2, Eye, CheckCircle } from "lucide-react";
 import { toast } from "sonner";
-import { formatCurrency } from "@/lib/currency";
+import { formatGBP } from "@/lib/currency";
 
 export function SupplierInvoicesTab() {
   const queryClient = useQueryClient();

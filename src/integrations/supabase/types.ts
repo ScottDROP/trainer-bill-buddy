@@ -430,6 +430,48 @@ export type Database = {
           },
         ]
       }
+      supplier_invoices: {
+        Row: {
+          amount: number
+          created_at: string
+          description: string | null
+          due_date: string | null
+          file_path: string | null
+          id: string
+          invoice_date: string
+          invoice_number: string | null
+          status: string
+          supplier_name: string
+          updated_at: string
+        }
+        Insert: {
+          amount?: number
+          created_at?: string
+          description?: string | null
+          due_date?: string | null
+          file_path?: string | null
+          id?: string
+          invoice_date?: string
+          invoice_number?: string | null
+          status?: string
+          supplier_name: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          description?: string | null
+          due_date?: string | null
+          file_path?: string | null
+          id?: string
+          invoice_date?: string
+          invoice_number?: string | null
+          status?: string
+          supplier_name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       trainers: {
         Row: {
           aliases: string[] | null

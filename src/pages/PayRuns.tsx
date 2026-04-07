@@ -28,6 +28,9 @@ export default function PayRuns() {
         <TabsContent value="suppliers">
           <SupplierInvoicesTab />
         </TabsContent>
+        <TabsContent value="pilates">
+          <PilatesPayRunTab />
+        </TabsContent>
       </Tabs>
     </div>
   );

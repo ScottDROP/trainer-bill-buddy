@@ -5,7 +5,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Extract text from DOCX (ZIP containing XML with <w:t> tags)
+// Extract text from DOCX
 function extractTextFromDocx(bytes: Uint8Array): string {
   const decoder = new TextDecoder();
   const fullText = decoder.decode(bytes);
@@ -15,51 +15,129 @@ function extractTextFromDocx(bytes: Uint8Array): string {
   while ((match = regex.exec(fullText)) !== null) {
     if (match[1]) textParts.push(match[1]);
   }
-  return textParts.length > 0 
-    ? textParts.join(" ") 
+  return textParts.length > 0
+    ? textParts.join(" ")
     : fullText.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 8000);
 }
 
-// Extract readable text from PDF binary
-function extractTextFromPdf(bytes: Uint8Array): string {
+// Decompress a FlateDecode stream
+async function inflateStream(compressed: Uint8Array): Promise<Uint8Array> {
+  try {
+    const ds = new DecompressionStream("deflate");
+    const writer = ds.writable.getWriter();
+    const reader = ds.readable.getReader();
+    
+    const chunks: Uint8Array[] = [];
+    const writePromise = writer.write(compressed).then(() => writer.close()).catch(() => {});
+    
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      chunks.push(value);
+    }
+    await writePromise;
+    
+    const totalLength = chunks.reduce((a, c) => a + c.length, 0);
+    const result = new Uint8Array(totalLength);
+    let offset = 0;
+    for (const chunk of chunks) {
+      result.set(chunk, offset);
+      offset += chunk.length;
+    }
+    return result;
+  } catch {
+    return new Uint8Array(0);
+  }
+}
+
+// Extract text from decompressed PDF content
+function extractTextFromContent(content: string): string[] {
+  const parts: string[] = [];
+  
+  // Tj operator: (text) Tj
+  const tjRegex = /\(([^)]*)\)\s*Tj/g;
+  let m;
+  while ((m = tjRegex.exec(content)) !== null) {
+    if (m[1].trim()) parts.push(m[1]);
+  }
+  
+  // TJ operator: [(text) kern (text)] TJ  
+  const tjArrayRegex = /\[([^\]]*)\]\s*TJ/gi;
+  while ((m = tjArrayRegex.exec(content)) !== null) {
+    const innerRegex = /\(([^)]*)\)/g;
+    let im;
+    let segment = "";
+    while ((im = innerRegex.exec(m[1])) !== null) {
+      segment += im[1];
+    }
+    if (segment.trim()) parts.push(segment);
+  }
+  
+  return parts;
+}
+
+// Full PDF text extraction with decompression
+async function extractTextFromPdf(bytes: Uint8Array): Promise<string> {
   const decoder = new TextDecoder("latin1");
   const raw = decoder.decode(bytes);
-  const textParts: string[] = [];
-
-  // Method 1: Extract text between BT...ET blocks (PDF text objects)
-  const btEtRegex = /BT\s([\s\S]*?)ET/g;
+  const allText: string[] = [];
+  
+  // Find all stream...endstream blocks
+  const streamRegex = /stream\r?\n([\s\S]*?)endstream/g;
   let match;
-  while ((match = btEtRegex.exec(raw)) !== null) {
-    const block = match[1];
-    // Extract text from Tj and TJ operators
-    const tjRegex = /\(([^)]*)\)\s*Tj/g;
-    let tjMatch;
-    while ((tjMatch = tjRegex.exec(block)) !== null) {
-      if (tjMatch[1].trim()) textParts.push(tjMatch[1]);
+  const streamPositions: { start: number; end: number }[] = [];
+  
+  while ((match = streamRegex.exec(raw)) !== null) {
+    streamPositions.push({ start: match.index, end: match.index + match[0].length });
+    
+    const streamBytes = new Uint8Array(match[1].length);
+    for (let i = 0; i < match[1].length; i++) {
+      streamBytes[i] = match[1].charCodeAt(i);
     }
-    // TJ arrays
-    const tjArrayRegex = /\[([^\]]*)\]\s*TJ/g;
-    let arrMatch;
-    while ((arrMatch = tjArrayRegex.exec(block)) !== null) {
-      const innerRegex = /\(([^)]*)\)/g;
-      let innerMatch;
-      while ((innerMatch = innerRegex.exec(arrMatch[1])) !== null) {
-        if (innerMatch[1].trim()) textParts.push(innerMatch[1]);
+    
+    // Check if FlateDecode by looking at the object header before the stream
+    const headerStart = Math.max(0, match.index - 500);
+    const header = raw.slice(headerStart, match.index);
+    const isFlate = header.includes("FlateDecode");
+    
+    let content: string;
+    if (isFlate) {
+      const decompressed = await inflateStream(streamBytes);
+      if (decompressed.length > 0) {
+        content = decoder.decode(decompressed);
+      } else {
+        continue;
       }
+    } else {
+      content = match[1];
     }
+    
+    // Extract text operators
+    const texts = extractTextFromContent(content);
+    allText.push(...texts);
   }
-
-  // Method 2: If BT/ET extraction got nothing, look for stream content
-  if (textParts.length < 5) {
-    // Try to find any parenthesized text strings
-    const parenRegex = /\(([A-Za-z0-9£$€@.,\-\/\s:;#]{3,80})\)/g;
+  
+  // Also try uncompressed text outside streams
+  if (allText.length < 5) {
+    const parenRegex = /\(([A-Za-z0-9£$€@.,\-\/\s:;#&%]{3,100})\)\s*Tj/g;
     while ((match = parenRegex.exec(raw)) !== null) {
-      const t = match[1].trim();
-      if (t.length >= 3) textParts.push(t);
+      allText.push(match[1]);
     }
   }
-
-  return textParts.join(" ").replace(/\s+/g, " ").trim();
+  
+  const result = allText.join(" ")
+    // Decode PDF escape sequences
+    .replace(/\\n/g, "\n")
+    .replace(/\\r/g, "\r") 
+    .replace(/\\t/g, "\t")
+    .replace(/\\\(/g, "(")
+    .replace(/\\\)/g, ")")
+    .replace(/\\\\/g, "\\")
+    .replace(/\\(\d{3})/g, (_, oct) => String.fromCharCode(parseInt(oct, 8)))
+    .replace(/\s+/g, " ")
+    .trim();
+  
+  return result;
 }
 
 serve(async (req) => {
@@ -75,21 +153,20 @@ serve(async (req) => {
 
     const arrayBuffer = await file.arrayBuffer();
     const bytes = new Uint8Array(arrayBuffer);
-    const isDocx = file.name.toLowerCase().endsWith(".docx") || 
+    const isDocx = file.name.toLowerCase().endsWith(".docx") ||
       file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
 
-    // Extract text from both PDF and DOCX
     let text: string;
     if (isDocx) {
       text = extractTextFromDocx(bytes);
       console.log("Extracted DOCX text length:", text.length);
     } else {
-      text = extractTextFromPdf(bytes);
+      text = await extractTextFromPdf(bytes);
       console.log("Extracted PDF text length:", text.length);
+      console.log("PDF text preview:", text.slice(0, 300));
     }
 
     if (text.length < 10) {
-      console.log("Text extraction produced very little content, raw sample:", new TextDecoder("latin1").decode(bytes.slice(0, 500)));
       throw new Error("Could not extract text from file. Please ensure the document contains readable text.");
     }
 
@@ -143,11 +220,6 @@ serve(async (req) => {
     if (!response.ok) {
       const errText = await response.text();
       console.error("AI gateway error:", response.status, errText);
-      if (response.status === 429) {
-        return new Response(JSON.stringify({ error: "Rate limited, please try again shortly" }), {
-          status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
       throw new Error(`AI gateway error: ${response.status}`);
     }
 

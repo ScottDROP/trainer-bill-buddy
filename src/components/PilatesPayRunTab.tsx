@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Upload, Trash2, Eye, Download, UserPlus, FileText, Loader2 } from "lucide-react";
+import { Upload, Trash2, Eye, Download, UserPlus, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { formatGBP } from "@/lib/currency";
 import { downloadCSV } from "@/lib/xero-export";
@@ -19,7 +19,12 @@ const MONTHS = [
   "July", "August", "September", "October", "November", "December",
 ];
 
-function buildPilatesXeroCSV(invoices: any[], instructors: any[]): string {
+function esc(v: any) {
+  const s = v == null ? "" : String(v);
+  return s.includes(",") || s.includes('"') || s.includes("\n") ? `"${s.replace(/"/g, '""')}"` : s;
+}
+
+function buildXeroCSV(invoices: any[], instructors: any[]): string {
   const header = [
     "*ContactName", "EmailAddress",
     "POAddressLine1", "POAddressLine2", "POAddressLine3", "POAddressLine4",
@@ -42,15 +47,9 @@ function buildPilatesXeroCSV(invoices: any[], instructors: any[]): string {
     dueDate.setDate(dueDate.getDate() + 30);
     const fmt = (d: Date) => d.toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric" });
 
-    const esc = (v: any) => {
-      const s = v == null ? "" : String(v);
-      return s.includes(",") || s.includes('"') || s.includes("\n") ? `"${s.replace(/"/g, '""')}"` : s;
-    };
-
     const row = [
       contactName, inst?.email || "",
-      "", "", "", "",
-      "", "", "", "",
+      "", "", "", "", "", "", "", "",
       inv.invoice_number || "", fmt(invDate), fmt(dueDate), inv.total_due,
       "", inv.description || "Pilates Sessions", 1, inv.amount,
       "324", taxType, inv.vat_amount || 0,
@@ -62,13 +61,9 @@ function buildPilatesXeroCSV(invoices: any[], instructors: any[]): string {
   return rows.join("\n");
 }
 
-function buildPilatesTellerooCSV(invoices: any[], instructors: any[]): string {
+function buildTellerooCSV(invoices: any[], instructors: any[]): string {
   const header = ["amount_pounds", "recipient_name", "account_no", "sort_code", "reference"];
   const rows: string[] = [header.join(",")];
-  const esc = (v: any) => {
-    const s = v == null ? "" : String(v);
-    return s.includes(",") || s.includes('"') || s.includes("\n") ? `"${s.replace(/"/g, '""')}"` : s;
-  };
 
   for (const inv of invoices) {
     const inst = instructors.find((i: any) => i.id === inv.instructor_id);
@@ -85,6 +80,30 @@ function buildPilatesTellerooCSV(invoices: any[], instructors: any[]): string {
   return rows.join("\n");
 }
 
+function fuzzyMatch(name: string, instructors: any[]): any | null {
+  const n = name.toLowerCase().trim();
+  // Exact match on full_name or company_name
+  let match = instructors.find((i: any) =>
+    i.full_name.toLowerCase() === n || i.company_name?.toLowerCase() === n
+  );
+  if (match) return match;
+
+  // First name match
+  const firstName = n.split(/\s+/)[0];
+  if (firstName.length >= 3) {
+    const candidates = instructors.filter((i: any) =>
+      i.full_name.toLowerCase().startsWith(firstName)
+    );
+    if (candidates.length === 1) return candidates[0];
+  }
+
+  // Partial match - name contains or is contained
+  match = instructors.find((i: any) =>
+    i.full_name.toLowerCase().includes(n) || n.includes(i.full_name.toLowerCase())
+  );
+  return match || null;
+}
+
 export function PilatesPayRunTab() {
   const queryClient = useQueryClient();
   const now = new Date();
@@ -92,6 +111,7 @@ export function PilatesPayRunTab() {
   const [year, setYear] = useState(now.getFullYear().toString());
   const [isDragging, setIsDragging] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState("");
   const [instructorDialogOpen, setInstructorDialogOpen] = useState(false);
   const [instForm, setInstForm] = useState({ full_name: "", email: "", company_name: "", bank_account_number: "", bank_sort_code: "", vat_number: "" });
 
@@ -159,14 +179,6 @@ export function PilatesPayRunTab() {
     },
   });
 
-  const updateInvoiceField = useMutation({
-    mutationFn: async ({ id, field, value }: { id: string; field: string; value: any }) => {
-      const { error } = await supabase.from("pilates_invoices").update({ [field]: value }).eq("id", id);
-      if (error) throw error;
-    },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["pilates-invoices"] }),
-  });
-
   const linkInstructor = useMutation({
     mutationFn: async ({ invoiceId, instructorId }: { invoiceId: string; instructorId: string }) => {
       const { error } = await supabase.from("pilates_invoices")
@@ -184,21 +196,20 @@ export function PilatesPayRunTab() {
     setUploading(true);
     let successCount = 0;
 
-    for (const file of files) {
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      setUploadProgress(`Processing ${i + 1}/${files.length}: ${file.name}`);
+
       try {
-        // Upload file to storage
         const fileName = `${selectedYear}-${selectedMonth}/${Date.now()}-${file.name}`;
         const { error: uploadError } = await supabase.storage.from("pilates-invoices").upload(fileName, file);
         if (uploadError) throw uploadError;
 
-        // Try AI extraction
         let extracted: any = {};
         try {
           const formData = new FormData();
           formData.append("file", file);
-          const { data: funcData, error: funcError } = await supabase.functions.invoke("parse-pilates-invoice", {
-            body: formData,
-          });
+          const { data: funcData, error: funcError } = await supabase.functions.invoke("parse-pilates-invoice", { body: formData });
           if (!funcError && funcData?.success) {
             extracted = funcData.data;
           }
@@ -206,17 +217,13 @@ export function PilatesPayRunTab() {
           console.warn("AI extraction failed for", file.name);
         }
 
-        // Try to auto-match instructor
+        // Auto-match instructor
         let instructorId = null;
         if (extracted.instructor_name) {
-          const match = instructors.find((i: any) =>
-            i.full_name.toLowerCase() === extracted.instructor_name.toLowerCase() ||
-            i.company_name?.toLowerCase() === extracted.instructor_name.toLowerCase()
-          );
+          const match = fuzzyMatch(extracted.instructor_name, instructors);
           if (match) instructorId = match.id;
         }
 
-        // Insert invoice record
         const { error: insertError } = await supabase.from("pilates_invoices").insert({
           instructor_id: instructorId,
           instructor_name: extracted.instructor_name || file.name.replace(/\.[^.]+$/, ""),
@@ -244,12 +251,16 @@ export function PilatesPayRunTab() {
       toast.success(`${successCount} invoice${successCount > 1 ? "s" : ""} uploaded`);
     }
     setUploading(false);
+    setUploadProgress("");
   };
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
-    const files = Array.from(e.dataTransfer.files).filter(f => f.type === "application/pdf" || f.name.endsWith(".pdf") || f.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" || f.name.endsWith(".docx"));
+    const files = Array.from(e.dataTransfer.files).filter(f =>
+      f.type === "application/pdf" || f.name.endsWith(".pdf") ||
+      f.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" || f.name.endsWith(".docx")
+    );
     if (files.length) processFiles(files);
   }, [selectedMonth, selectedYear, instructors]);
 
@@ -265,7 +276,7 @@ export function PilatesPayRunTab() {
   };
 
   const exportXero = () => {
-    const csv = buildPilatesXeroCSV(invoices, instructors);
+    const csv = buildXeroCSV(invoices, instructors);
     downloadCSV(csv, `pilates-xero-${MONTHS[selectedMonth - 1]}-${selectedYear}.csv`);
     toast.success("Xero CSV downloaded");
   };
@@ -273,10 +284,10 @@ export function PilatesPayRunTab() {
   const exportTelleroo = () => {
     const unlinked = invoices.filter((i: any) => !i.instructor_id);
     if (unlinked.length > 0) {
-      toast.error(`${unlinked.length} invoice(s) not linked to an instructor — link them first for bank details`);
+      toast.error(`${unlinked.length} invoice(s) not linked — link them first for bank details`);
       return;
     }
-    const csv = buildPilatesTellerooCSV(invoices, instructors);
+    const csv = buildTellerooCSV(invoices, instructors);
     downloadCSV(csv, `pilates-telleroo-${MONTHS[selectedMonth - 1]}-${selectedYear}.csv`);
     toast.success("Telleroo CSV downloaded");
   };
@@ -285,7 +296,6 @@ export function PilatesPayRunTab() {
 
   return (
     <div className="space-y-4">
-      {/* Controls */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-3">
           <Select value={month} onValueChange={setMonth}>
@@ -342,7 +352,6 @@ export function PilatesPayRunTab() {
         </div>
       </div>
 
-      {/* Drop zone */}
       <div
         className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${isDragging ? "border-primary bg-primary/5" : "border-muted-foreground/25"}`}
         onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
@@ -352,7 +361,7 @@ export function PilatesPayRunTab() {
         {uploading ? (
           <div className="flex flex-col items-center gap-2">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            <p className="text-sm text-muted-foreground">Processing invoices...</p>
+            <p className="text-sm text-muted-foreground">{uploadProgress}</p>
           </div>
         ) : (
           <>
@@ -366,7 +375,6 @@ export function PilatesPayRunTab() {
         )}
       </div>
 
-      {/* Invoice table */}
       <Card>
         <CardContent className="p-0">
           <Table>

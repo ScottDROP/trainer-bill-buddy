@@ -19,7 +19,15 @@ serve(async (req) => {
 
     // Convert file to base64 for AI processing
     const arrayBuffer = await file.arrayBuffer();
-    const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+    const bytes = new Uint8Array(arrayBuffer);
+    let base64 = "";
+    for (let i = 0; i < bytes.length; i += 8192) {
+      base64 += btoa(String.fromCharCode(...bytes.subarray(i, i + 8192)));
+    }
+
+    // Detect mime type for the AI call
+    const isDocx = file.name.toLowerCase().endsWith(".docx") || file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+    const mimeType = isDocx ? "application/vnd.openxmlformats-officedocument.wordprocessingml.document" : "application/pdf";
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -43,7 +51,7 @@ serve(async (req) => {
               },
               {
                 type: "image_url",
-                image_url: { url: `data:application/pdf;base64,${base64}` },
+                image_url: { url: `data:${mimeType};base64,${base64}` },
               },
             ],
           },

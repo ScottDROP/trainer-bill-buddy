@@ -1,36 +1,65 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { encode as base64Encode } from "https://deno.land/std@0.168.0/encoding/base64.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Simple DOCX text extractor - pulls text from the XML inside the zip
-async function extractTextFromDocx(buffer: ArrayBuffer): Promise<string> {
-  // DOCX is a ZIP containing word/document.xml
-  // We'll find the XML content and strip tags
-  const bytes = new Uint8Array(buffer);
+// Extract text from DOCX (ZIP containing XML with <w:t> tags)
+function extractTextFromDocx(bytes: Uint8Array): string {
   const decoder = new TextDecoder();
-  
-  // Search for word/document.xml content in the zip
-  // Look for XML content between common markers
   const fullText = decoder.decode(bytes);
-  
-  // Find all <w:t> tag contents (Word text runs)
   const textParts: string[] = [];
   const regex = /<w:t[^>]*>([^<]*)<\/w:t>/g;
   let match;
   while ((match = regex.exec(fullText)) !== null) {
     if (match[1]) textParts.push(match[1]);
   }
-  
-  if (textParts.length > 0) {
-    return textParts.join(" ");
+  return textParts.length > 0 
+    ? textParts.join(" ") 
+    : fullText.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 8000);
+}
+
+// Extract readable text from PDF binary
+function extractTextFromPdf(bytes: Uint8Array): string {
+  const decoder = new TextDecoder("latin1");
+  const raw = decoder.decode(bytes);
+  const textParts: string[] = [];
+
+  // Method 1: Extract text between BT...ET blocks (PDF text objects)
+  const btEtRegex = /BT\s([\s\S]*?)ET/g;
+  let match;
+  while ((match = btEtRegex.exec(raw)) !== null) {
+    const block = match[1];
+    // Extract text from Tj and TJ operators
+    const tjRegex = /\(([^)]*)\)\s*Tj/g;
+    let tjMatch;
+    while ((tjMatch = tjRegex.exec(block)) !== null) {
+      if (tjMatch[1].trim()) textParts.push(tjMatch[1]);
+    }
+    // TJ arrays
+    const tjArrayRegex = /\[([^\]]*)\]\s*TJ/g;
+    let arrMatch;
+    while ((arrMatch = tjArrayRegex.exec(block)) !== null) {
+      const innerRegex = /\(([^)]*)\)/g;
+      let innerMatch;
+      while ((innerMatch = innerRegex.exec(arrMatch[1])) !== null) {
+        if (innerMatch[1].trim()) textParts.push(innerMatch[1]);
+      }
+    }
   }
-  
-  // Fallback: try to get any readable text
-  return fullText.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 5000);
+
+  // Method 2: If BT/ET extraction got nothing, look for stream content
+  if (textParts.length < 5) {
+    // Try to find any parenthesized text strings
+    const parenRegex = /\(([A-Za-z0-9£$€@.,\-\/\s:;#]{3,80})\)/g;
+    while ((match = parenRegex.exec(raw)) !== null) {
+      const t = match[1].trim();
+      if (t.length >= 3) textParts.push(t);
+    }
+  }
+
+  return textParts.join(" ").replace(/\s+/g, " ").trim();
 }
 
 serve(async (req) => {
@@ -45,48 +74,35 @@ serve(async (req) => {
     if (!file) throw new Error("No file provided");
 
     const arrayBuffer = await file.arrayBuffer();
+    const bytes = new Uint8Array(arrayBuffer);
     const isDocx = file.name.toLowerCase().endsWith(".docx") || 
       file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
 
-    let messages: any[];
-
+    // Extract text from both PDF and DOCX
+    let text: string;
     if (isDocx) {
-      // For DOCX: extract text and send as plain text
-      const text = await extractTextFromDocx(arrayBuffer);
+      text = extractTextFromDocx(bytes);
       console.log("Extracted DOCX text length:", text.length);
-      messages = [
-        {
-          role: "system",
-          content: "You are an invoice data extractor. Extract invoice details from the provided text. Return the data by calling the extract_invoice function.",
-        },
-        {
-          role: "user",
-          content: `Extract the invoice details from this document text. Get the instructor/company name, invoice number, invoice date (YYYY-MM-DD format), net amount (before VAT), VAT amount, total amount, description of services, and location if mentioned.\n\nDocument text:\n${text}`,
-        },
-      ];
     } else {
-      // For PDF: send as base64 image_url
-      const base64 = base64Encode(new Uint8Array(arrayBuffer));
-      messages = [
-        {
-          role: "system",
-          content: "You are an invoice data extractor. Extract invoice details from the provided document. Return the data by calling the extract_invoice function.",
-        },
-        {
-          role: "user",
-          content: [
-            {
-              type: "text",
-              text: "Extract the invoice details from this document. Get the instructor/company name, invoice number, invoice date (YYYY-MM-DD format), net amount (before VAT), VAT amount, total amount, description of services, and location if mentioned.",
-            },
-            {
-              type: "image_url",
-              image_url: { url: `data:application/pdf;base64,${base64}` },
-            },
-          ],
-        },
-      ];
+      text = extractTextFromPdf(bytes);
+      console.log("Extracted PDF text length:", text.length);
     }
+
+    if (text.length < 10) {
+      console.log("Text extraction produced very little content, raw sample:", new TextDecoder("latin1").decode(bytes.slice(0, 500)));
+      throw new Error("Could not extract text from file. Please ensure the document contains readable text.");
+    }
+
+    const messages = [
+      {
+        role: "system",
+        content: "You are an invoice data extractor. Extract invoice details from the provided text. Return the data by calling the extract_invoice function.",
+      },
+      {
+        role: "user",
+        content: `Extract the invoice details from this document text. Get the instructor/company name, invoice number, invoice date (YYYY-MM-DD format), net amount (before VAT), VAT amount, total amount due, description of services, and location if mentioned.\n\nDocument text:\n${text.slice(0, 6000)}`,
+      },
+    ];
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",

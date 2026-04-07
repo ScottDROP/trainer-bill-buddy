@@ -357,9 +357,9 @@ export function PilatesPayRunTab() {
         ) : (
           <>
             <Upload className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
-            <p className="text-sm text-muted-foreground mb-2">Drag & drop PDF invoices here, or click to browse</p>
+            <p className="text-sm text-muted-foreground mb-2">Drag & drop PDF or Word invoices here, or click to browse</p>
             <label>
-              <Input type="file" accept=".pdf" multiple className="hidden" onChange={handleFileSelect} />
+              <Input type="file" accept=".pdf,.docx" multiple className="hidden" onChange={handleFileSelect} />
               <Button variant="secondary" asChild><span>Browse Files</span></Button>
             </label>
           </>

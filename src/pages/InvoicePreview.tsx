@@ -371,6 +371,13 @@ export default function InvoicePreview() {
             <>
               <Button
                 variant="outline"
+                onClick={() => recalcAllMutation.mutate()}
+                disabled={recalcAllMutation.isPending}
+              >
+                {recalcAllMutation.isPending ? "Recalculating..." : "Recalculate All"}
+              </Button>
+              <Button
+                variant="outline"
                 onClick={() => {
                   const csv = buildXeroCSV(invoices, trainers, allLineItems, rows, manualLineItems);
                   const filename = payRun

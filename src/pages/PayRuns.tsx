@@ -2,6 +2,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TrainerPayRunsTab } from "@/components/TrainerPayRunsTab";
 import { StaffPayRunsTab } from "@/components/StaffPayRunsTab";
 import { SupplierInvoicesTab } from "@/components/SupplierInvoicesTab";
+import { PilatesPayRunTab } from "@/components/PilatesPayRunTab";
 
 export default function PayRuns() {
   return (
@@ -16,6 +17,7 @@ export default function PayRuns() {
           <TabsTrigger value="trainers">Trainers</TabsTrigger>
           <TabsTrigger value="staff">Full-Time Staff</TabsTrigger>
           <TabsTrigger value="suppliers">Supplier Invoices</TabsTrigger>
+          <TabsTrigger value="pilates">Pilates</TabsTrigger>
         </TabsList>
         <TabsContent value="trainers">
           <TrainerPayRunsTab />
@@ -25,6 +27,9 @@ export default function PayRuns() {
         </TabsContent>
         <TabsContent value="suppliers">
           <SupplierInvoicesTab />
+        </TabsContent>
+        <TabsContent value="pilates">
+          <PilatesPayRunTab />
         </TabsContent>
       </Tabs>
     </div>

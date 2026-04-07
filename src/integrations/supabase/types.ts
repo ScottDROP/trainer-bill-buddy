@@ -300,6 +300,113 @@ export type Database = {
         }
         Relationships: []
       }
+      pilates_instructors: {
+        Row: {
+          bank_account_number: string | null
+          bank_sort_code: string | null
+          company_name: string | null
+          created_at: string
+          default_hourly_rate: number | null
+          email: string | null
+          full_name: string
+          id: string
+          invoicing_address: string | null
+          updated_at: string
+          vat_number: string | null
+        }
+        Insert: {
+          bank_account_number?: string | null
+          bank_sort_code?: string | null
+          company_name?: string | null
+          created_at?: string
+          default_hourly_rate?: number | null
+          email?: string | null
+          full_name: string
+          id?: string
+          invoicing_address?: string | null
+          updated_at?: string
+          vat_number?: string | null
+        }
+        Update: {
+          bank_account_number?: string | null
+          bank_sort_code?: string | null
+          company_name?: string | null
+          created_at?: string
+          default_hourly_rate?: number | null
+          email?: string | null
+          full_name?: string
+          id?: string
+          invoicing_address?: string | null
+          updated_at?: string
+          vat_number?: string | null
+        }
+        Relationships: []
+      }
+      pilates_invoices: {
+        Row: {
+          amount: number
+          created_at: string
+          description: string | null
+          file_path: string | null
+          id: string
+          instructor_id: string | null
+          instructor_name: string
+          invoice_date: string
+          invoice_number: string | null
+          location: string | null
+          pay_run_month: number
+          pay_run_year: number
+          status: string
+          total_due: number
+          updated_at: string
+          vat_amount: number
+        }
+        Insert: {
+          amount?: number
+          created_at?: string
+          description?: string | null
+          file_path?: string | null
+          id?: string
+          instructor_id?: string | null
+          instructor_name?: string
+          invoice_date?: string
+          invoice_number?: string | null
+          location?: string | null
+          pay_run_month: number
+          pay_run_year: number
+          status?: string
+          total_due?: number
+          updated_at?: string
+          vat_amount?: number
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          description?: string | null
+          file_path?: string | null
+          id?: string
+          instructor_id?: string | null
+          instructor_name?: string
+          invoice_date?: string
+          invoice_number?: string | null
+          location?: string | null
+          pay_run_month?: number
+          pay_run_year?: number
+          status?: string
+          total_due?: number
+          updated_at?: string
+          vat_amount?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pilates_invoices_instructor_id_fkey"
+            columns: ["instructor_id"]
+            isOneToOne: false
+            referencedRelation: "pilates_instructors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           created_at: string

@@ -17,6 +17,7 @@ export default function PayRuns() {
           <TabsTrigger value="trainers">Trainers</TabsTrigger>
           <TabsTrigger value="staff">Full-Time Staff</TabsTrigger>
           <TabsTrigger value="suppliers">Supplier Invoices</TabsTrigger>
+          <TabsTrigger value="pilates">Pilates</TabsTrigger>
         </TabsList>
         <TabsContent value="trainers">
           <TrainerPayRunsTab />

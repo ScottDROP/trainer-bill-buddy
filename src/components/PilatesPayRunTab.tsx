@@ -249,7 +249,7 @@ export function PilatesPayRunTab() {
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
-    const files = Array.from(e.dataTransfer.files).filter(f => f.type === "application/pdf" || f.name.endsWith(".pdf"));
+    const files = Array.from(e.dataTransfer.files).filter(f => f.type === "application/pdf" || f.name.endsWith(".pdf") || f.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" || f.name.endsWith(".docx"));
     if (files.length) processFiles(files);
   }, [selectedMonth, selectedYear, instructors]);
 

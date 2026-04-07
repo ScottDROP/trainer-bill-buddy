@@ -13,6 +13,110 @@ function uint8ToBase64(bytes: Uint8Array): string {
   return btoa(binary);
 }
 
+// Extract text from DOCX by unzipping and parsing document.xml
+async function extractTextFromDocx(bytes: Uint8Array): Promise<string> {
+  // Find word/document.xml in the ZIP
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  let offset = 0;
+
+  while (offset < bytes.length - 4) {
+    const sig = view.getUint32(offset, true);
+    if (sig !== 0x04034b50) break;
+
+    const compressionMethod = view.getUint16(offset + 8, true);
+    const compressedSize = view.getUint32(offset + 18, true);
+    const uncompressedSize = view.getUint32(offset + 22, true);
+    const fileNameLen = view.getUint16(offset + 26, true);
+    const extraLen = view.getUint16(offset + 28, true);
+    const fileName = new TextDecoder().decode(bytes.slice(offset + 30, offset + 30 + fileNameLen));
+    const dataStart = offset + 30 + fileNameLen + extraLen;
+
+    if (fileName === "word/document.xml") {
+      const compressed = bytes.slice(dataStart, dataStart + compressedSize);
+
+      let xmlBytes: Uint8Array;
+      if (compressionMethod === 0) {
+        xmlBytes = compressed;
+      } else if (compressionMethod === 8) {
+        // Deflate — need to wrap in zlib format for DecompressionStream
+        // Add zlib header (78 01) and compute Adler-32 checksum
+        const wrapped = new Uint8Array(compressed.length + 6);
+        wrapped[0] = 0x78;
+        wrapped[1] = 0x01;
+        wrapped.set(compressed, 2);
+        // Adler-32 placeholder (not strictly needed for decompression)
+        wrapped[wrapped.length - 4] = 0;
+        wrapped[wrapped.length - 3] = 0;
+        wrapped[wrapped.length - 2] = 0;
+        wrapped[wrapped.length - 1] = 0;
+
+        try {
+          const ds = new DecompressionStream("deflate");
+          const writer = ds.writable.getWriter();
+          const reader = ds.readable.getReader();
+          const chunks: Uint8Array[] = [];
+          writer.write(wrapped).then(() => writer.close()).catch(() => {});
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            chunks.push(value);
+          }
+          const total = chunks.reduce((a, c) => a + c.length, 0);
+          xmlBytes = new Uint8Array(total);
+          let o = 0;
+          for (const c of chunks) { xmlBytes.set(c, o); o += c.length; }
+        } catch (e) {
+          console.error("Deflate error, trying raw:", e);
+          // Fallback: try raw deflate
+          try {
+            const ds2 = new DecompressionStream("raw");
+            const writer2 = ds2.writable.getWriter();
+            const reader2 = ds2.readable.getReader();
+            const chunks2: Uint8Array[] = [];
+            writer2.write(compressed).then(() => writer2.close()).catch(() => {});
+            while (true) {
+              const { done, value } = await reader2.read();
+              if (done) break;
+              chunks2.push(value);
+            }
+            const total2 = chunks2.reduce((a, c) => a + c.length, 0);
+            xmlBytes = new Uint8Array(total2);
+            let o2 = 0;
+            for (const c of chunks2) { xmlBytes.set(c, o2); o2 += c.length; }
+          } catch {
+            return "";
+          }
+        }
+      } else {
+        return "";
+      }
+
+      const xml = new TextDecoder("utf-8").decode(xmlBytes);
+      const parts: string[] = [];
+      const regex = /<w:t[^>]*>([^<]*)<\/w:t>/g;
+      let m;
+      while ((m = regex.exec(xml)) !== null) {
+        if (m[1]) parts.push(m[1]);
+      }
+      return parts.join(" ");
+    }
+
+    // Use actual compressed size, but handle cases where it might be in data descriptor
+    let nextOffset = dataStart + compressedSize;
+    if (compressedSize === 0 && uncompressedSize === 0) {
+      // Data descriptor — scan for next local file header
+      let scan = dataStart;
+      while (scan < bytes.length - 4) {
+        if (view.getUint32(scan, true) === 0x04034b50) break;
+        scan++;
+      }
+      nextOffset = scan;
+    }
+    offset = nextOffset;
+  }
+  return "";
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -26,19 +130,59 @@ serve(async (req) => {
 
     const arrayBuffer = await file.arrayBuffer();
     const bytes = new Uint8Array(arrayBuffer);
-    const base64 = uint8ToBase64(bytes);
 
     const isDocx = file.name.toLowerCase().endsWith(".docx") ||
       file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
-    const isPdf = file.name.toLowerCase().endsWith(".pdf") || file.type === "application/pdf";
 
-    const mimeType = isDocx
-      ? "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-      : isPdf
-      ? "application/pdf"
-      : "application/octet-stream";
+    console.log(`Processing file: ${file.name}, size: ${bytes.length}, isDocx: ${isDocx}`);
 
-    console.log(`Processing file: ${file.name}, type: ${mimeType}, size: ${bytes.length}`);
+    let messages;
+
+    if (isDocx) {
+      // Extract text from DOCX and send as text
+      const text = await extractTextFromDocx(bytes);
+      console.log(`DOCX extracted text length: ${text.length}`);
+      console.log("DOCX text preview:", text.slice(0, 500));
+
+      if (text.length < 10) {
+        throw new Error("Could not extract readable text from this DOCX file.");
+      }
+
+      messages = [
+        {
+          role: "system",
+          content: "You extract invoice data from documents. Return structured data via the extract_invoice function. For amounts, use numbers only (no currency symbols). If there's no VAT, set vat_amount to 0 and total_amount equals net_amount.",
+        },
+        {
+          role: "user",
+          content: `Extract invoice details from this document text:\n\n${text.slice(0, 8000)}`,
+        },
+      ];
+    } else {
+      // PDF — send as base64 inline
+      const base64 = uint8ToBase64(bytes);
+      messages = [
+        {
+          role: "system",
+          content: "You extract invoice data from documents. Return structured data via the extract_invoice function. For amounts, use numbers only (no currency symbols). If there's no VAT, set vat_amount to 0 and total_amount equals net_amount.",
+        },
+        {
+          role: "user",
+          content: [
+            {
+              type: "text",
+              text: "Extract invoice details from this document.",
+            },
+            {
+              type: "image_url",
+              image_url: {
+                url: `data:application/pdf;base64,${base64}`,
+              },
+            },
+          ],
+        },
+      ];
+    }
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -48,27 +192,7 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         model: "google/gemini-2.5-flash",
-        messages: [
-          {
-            role: "system",
-            content: "You extract invoice data from documents. Return structured data via the extract_invoice function. For amounts, use numbers only (no currency symbols). If there's no VAT, set vat_amount to 0 and total_amount equals net_amount.",
-          },
-          {
-            role: "user",
-            content: [
-              {
-                type: "text",
-                text: "Extract invoice details from this document. Look for instructor/company name, invoice number, date, amounts (net, VAT, total), description of services, and location.",
-              },
-              {
-                type: "image_url",
-                image_url: {
-                  url: `data:${mimeType};base64,${base64}`,
-                },
-              },
-            ],
-          },
-        ],
+        messages,
         tools: [{
           type: "function",
           function: {

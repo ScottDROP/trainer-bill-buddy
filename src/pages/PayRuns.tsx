@@ -2,6 +2,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TrainerPayRunsTab } from "@/components/TrainerPayRunsTab";
 import { StaffPayRunsTab } from "@/components/StaffPayRunsTab";
 import { SupplierInvoicesTab } from "@/components/SupplierInvoicesTab";
+import { PilatesPayRunTab } from "@/components/PilatesPayRunTab";
 
 export default function PayRuns() {
   return (

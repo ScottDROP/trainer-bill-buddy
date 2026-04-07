@@ -1,10 +1,37 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import { encode as base64Encode } from "https://deno.land/std@0.168.0/encoding/base64.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
+
+// Simple DOCX text extractor - pulls text from the XML inside the zip
+async function extractTextFromDocx(buffer: ArrayBuffer): Promise<string> {
+  // DOCX is a ZIP containing word/document.xml
+  // We'll find the XML content and strip tags
+  const bytes = new Uint8Array(buffer);
+  const decoder = new TextDecoder();
+  
+  // Search for word/document.xml content in the zip
+  // Look for XML content between common markers
+  const fullText = decoder.decode(bytes);
+  
+  // Find all <w:t> tag contents (Word text runs)
+  const textParts: string[] = [];
+  const regex = /<w:t[^>]*>([^<]*)<\/w:t>/g;
+  let match;
+  while ((match = regex.exec(fullText)) !== null) {
+    if (match[1]) textParts.push(match[1]);
+  }
+  
+  if (textParts.length > 0) {
+    return textParts.join(" ");
+  }
+  
+  // Fallback: try to get any readable text
+  return fullText.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 5000);
+}
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -17,17 +44,49 @@ serve(async (req) => {
     const file = formData.get("file") as File;
     if (!file) throw new Error("No file provided");
 
-    // Convert file to base64 for AI processing
     const arrayBuffer = await file.arrayBuffer();
-    const bytes = new Uint8Array(arrayBuffer);
-    let base64 = "";
-    for (let i = 0; i < bytes.length; i += 8192) {
-      base64 += btoa(String.fromCharCode(...bytes.subarray(i, i + 8192)));
-    }
+    const isDocx = file.name.toLowerCase().endsWith(".docx") || 
+      file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
 
-    // Detect mime type for the AI call
-    const isDocx = file.name.toLowerCase().endsWith(".docx") || file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
-    const mimeType = isDocx ? "application/vnd.openxmlformats-officedocument.wordprocessingml.document" : "application/pdf";
+    let messages: any[];
+
+    if (isDocx) {
+      // For DOCX: extract text and send as plain text
+      const text = await extractTextFromDocx(arrayBuffer);
+      console.log("Extracted DOCX text length:", text.length);
+      messages = [
+        {
+          role: "system",
+          content: "You are an invoice data extractor. Extract invoice details from the provided text. Return the data by calling the extract_invoice function.",
+        },
+        {
+          role: "user",
+          content: `Extract the invoice details from this document text. Get the instructor/company name, invoice number, invoice date (YYYY-MM-DD format), net amount (before VAT), VAT amount, total amount, description of services, and location if mentioned.\n\nDocument text:\n${text}`,
+        },
+      ];
+    } else {
+      // For PDF: send as base64 image_url
+      const base64 = base64Encode(new Uint8Array(arrayBuffer));
+      messages = [
+        {
+          role: "system",
+          content: "You are an invoice data extractor. Extract invoice details from the provided document. Return the data by calling the extract_invoice function.",
+        },
+        {
+          role: "user",
+          content: [
+            {
+              type: "text",
+              text: "Extract the invoice details from this document. Get the instructor/company name, invoice number, invoice date (YYYY-MM-DD format), net amount (before VAT), VAT amount, total amount, description of services, and location if mentioned.",
+            },
+            {
+              type: "image_url",
+              image_url: { url: `data:application/pdf;base64,${base64}` },
+            },
+          ],
+        },
+      ];
+    }
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -37,25 +96,7 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         model: "google/gemini-2.5-flash",
-        messages: [
-          {
-            role: "system",
-            content: `You are an invoice data extractor. Extract invoice details from the provided document. Return the data by calling the extract_invoice function.`,
-          },
-          {
-            role: "user",
-            content: [
-              {
-                type: "text",
-                text: "Extract the invoice details from this document. Get the instructor/company name, invoice number, invoice date (YYYY-MM-DD format), net amount (before VAT), VAT amount, total amount, description of services, and location if mentioned.",
-              },
-              {
-                type: "image_url",
-                image_url: { url: `data:${mimeType};base64,${base64}` },
-              },
-            ],
-          },
-        ],
+        messages,
         tools: [
           {
             type: "function",

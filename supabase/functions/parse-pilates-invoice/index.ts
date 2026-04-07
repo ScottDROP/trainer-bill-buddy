@@ -38,24 +38,13 @@ async function extractTextFromDocx(bytes: Uint8Array): Promise<string> {
       if (compressionMethod === 0) {
         xmlBytes = compressed;
       } else if (compressionMethod === 8) {
-        // Deflate — need to wrap in zlib format for DecompressionStream
-        // Add zlib header (78 01) and compute Adler-32 checksum
-        const wrapped = new Uint8Array(compressed.length + 6);
-        wrapped[0] = 0x78;
-        wrapped[1] = 0x01;
-        wrapped.set(compressed, 2);
-        // Adler-32 placeholder (not strictly needed for decompression)
-        wrapped[wrapped.length - 4] = 0;
-        wrapped[wrapped.length - 3] = 0;
-        wrapped[wrapped.length - 2] = 0;
-        wrapped[wrapped.length - 1] = 0;
-
+        // Raw deflate — use "deflate-raw" which handles raw deflate without zlib wrapper
         try {
-          const ds = new DecompressionStream("deflate");
+          const ds = new DecompressionStream("deflate-raw");
           const writer = ds.writable.getWriter();
           const reader = ds.readable.getReader();
           const chunks: Uint8Array[] = [];
-          writer.write(wrapped).then(() => writer.close()).catch(() => {});
+          writer.write(compressed).then(() => writer.close()).catch(() => {});
           while (true) {
             const { done, value } = await reader.read();
             if (done) break;
@@ -66,26 +55,8 @@ async function extractTextFromDocx(bytes: Uint8Array): Promise<string> {
           let o = 0;
           for (const c of chunks) { xmlBytes.set(c, o); o += c.length; }
         } catch (e) {
-          console.error("Deflate error, trying raw:", e);
-          // Fallback: try raw deflate
-          try {
-            const ds2 = new DecompressionStream("raw");
-            const writer2 = ds2.writable.getWriter();
-            const reader2 = ds2.readable.getReader();
-            const chunks2: Uint8Array[] = [];
-            writer2.write(compressed).then(() => writer2.close()).catch(() => {});
-            while (true) {
-              const { done, value } = await reader2.read();
-              if (done) break;
-              chunks2.push(value);
-            }
-            const total2 = chunks2.reduce((a, c) => a + c.length, 0);
-            xmlBytes = new Uint8Array(total2);
-            let o2 = 0;
-            for (const c of chunks2) { xmlBytes.set(c, o2); o2 += c.length; }
-          } catch {
-            return "";
-          }
+          console.error("Decompression error:", e);
+          return "";
         }
       } else {
         return "";

@@ -187,45 +187,65 @@ export default function InvoicePreview() {
     }).eq("id", invoiceId);
   }
 
+  // Helper: calculate invoice totals for a row, fetching line items fresh from DB
+  async function calcInvoiceTotals(rowId: string, trainerId: string) {
+    const trainer = trainers.find((t: any) => t.id === trainerId);
+    // Fetch line items directly from DB to avoid stale cache
+    const { data: freshLineItems } = await supabase
+      .from("pay_run_line_items")
+      .select("*")
+      .eq("pay_run_row_id", rowId);
+    const lineItems = freshLineItems ?? [];
+    const sessionsSubtotal = lineItems.reduce((s: number, li: any) => s + Number(li.amount), 0);
+    const totalSessions = lineItems.reduce((s: number, li: any) => s + Number(li.sessions), 0);
+    const guarantee = Number((trainer as any)?.guarantee_amount) || 0;
+    const guaranteeTopUp = guarantee > 0 && sessionsSubtotal < guarantee ? guarantee - sessionsSubtotal : 0;
+    const guaranteeSessions = Number((trainer as any)?.guarantee_sessions) || 0;
+    const hourlyRate = Number(trainer?.default_hourly_rate) || 0;
+    const sessionTopUp = guaranteeSessions > 0 && totalSessions < guaranteeSessions
+      ? (guaranteeSessions - totalSessions) * hourlyRate : 0;
+    const managementFee = Number((trainer as any)?.management_fee) || 0;
+
+    // Include manual line items
+    const { data: manualItems } = await supabase
+      .from("invoice_line_items")
+      .select("*")
+      .eq("invoice_id", "placeholder"); // Will be overridden per-invoice
+    
+    const subtotal = sessionsSubtotal + guaranteeTopUp + sessionTopUp + managementFee;
+    const hasVat = trainer?.vat_number && trainer.vat_number.trim() !== "";
+    const vatAmount = hasVat ? subtotal * 0.2 : 0;
+    return { subtotal, vatAmount, totalDue: subtotal + vatAmount };
+  }
+
   const generateMutation = useMutation({
     mutationFn: async () => {
       if (!payRun) throw new Error("No pay run");
       const serviceStart = new Date(payRun.year, payRun.month - 1, 1);
       const serviceEnd = new Date(payRun.year, payRun.month, 0);
 
-      const invoicesToCreate = rows
+      const matchedRows = rows
         .filter((r: any) => r.matched_trainer_id)
-        .filter((r: any) => !invoices.find((inv: any) => inv.pay_run_row_id === r.id))
-        .map((row: any, idx: number) => {
-          const trainer = trainers.find((t: any) => t.id === row.matched_trainer_id);
-          const lineItems = allLineItems.filter((li: any) => li.pay_run_row_id === row.id);
-          const sessionsSubtotal = lineItems.reduce((s: number, li: any) => s + Number(li.amount), 0);
-          const totalSessions = lineItems.reduce((s: number, li: any) => s + Number(li.sessions), 0);
-          const guarantee = Number((trainer as any)?.guarantee_amount) || 0;
-          const guaranteeTopUp = guarantee > 0 && sessionsSubtotal < guarantee ? guarantee - sessionsSubtotal : 0;
-          const guaranteeSessions = Number((trainer as any)?.guarantee_sessions) || 0;
-          const hourlyRate = Number(trainer?.default_hourly_rate) || 0;
-          const sessionTopUp = guaranteeSessions > 0 && totalSessions < guaranteeSessions
-            ? (guaranteeSessions - totalSessions) * hourlyRate : 0;
-          const managementFee = Number((trainer as any)?.management_fee) || 0;
-          const subtotal = sessionsSubtotal + guaranteeTopUp + sessionTopUp + managementFee;
-          const hasVat = trainer?.vat_number && trainer.vat_number.trim() !== "";
-          const vatAmount = hasVat ? subtotal * 0.2 : 0;
-          const invoiceNum = `DG-${payRun.year}${String(payRun.month).padStart(2, "0")}-${String(idx + 1).padStart(3, "0")}`;
+        .filter((r: any) => !invoices.find((inv: any) => inv.pay_run_row_id === r.id));
 
-          return {
-            pay_run_row_id: row.id,
-            trainer_id: row.matched_trainer_id,
-            invoice_number: invoiceNum,
-            invoice_date: new Date().toISOString().split("T")[0],
-            service_period_start: serviceStart.toISOString().split("T")[0],
-            service_period_end: serviceEnd.toISOString().split("T")[0],
-            subtotal,
-            vat_amount: vatAmount,
-            total_due: subtotal + vatAmount,
-            status: "draft" as const,
-          };
+      const invoicesToCreate = [];
+      for (let idx = 0; idx < matchedRows.length; idx++) {
+        const row = matchedRows[idx];
+        const { subtotal, vatAmount, totalDue } = await calcInvoiceTotals(row.id, row.matched_trainer_id);
+        const invoiceNum = `DG-${payRun.year}${String(payRun.month).padStart(2, "0")}-${String(idx + 1).padStart(3, "0")}`;
+        invoicesToCreate.push({
+          pay_run_row_id: row.id,
+          trainer_id: row.matched_trainer_id,
+          invoice_number: invoiceNum,
+          invoice_date: new Date().toISOString().split("T")[0],
+          service_period_start: serviceStart.toISOString().split("T")[0],
+          service_period_end: serviceEnd.toISOString().split("T")[0],
+          subtotal,
+          vat_amount: vatAmount,
+          total_due: totalDue,
+          status: "draft" as const,
         });
+      }
 
       if (invoicesToCreate.length > 0) {
         const { error } = await supabase.from("invoices").insert(invoicesToCreate);
@@ -237,6 +257,51 @@ export default function InvoicePreview() {
       queryClient.invalidateQueries({ queryKey: ["invoices", id] });
       queryClient.invalidateQueries({ queryKey: ["pay-run", id] });
       toast.success("Invoices generated");
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
+  // Recalculate all invoice totals from fresh DB data
+  const recalcAllMutation = useMutation({
+    mutationFn: async () => {
+      for (const inv of invoices) {
+        const trainer = trainers.find((t: any) => t.id === inv.trainer_id);
+        const { data: freshLineItems } = await supabase
+          .from("pay_run_line_items")
+          .select("*")
+          .eq("pay_run_row_id", inv.pay_run_row_id);
+        const lineItems = freshLineItems ?? [];
+        const sessionsSubtotal = lineItems.reduce((s: number, li: any) => s + Number(li.amount), 0);
+        const totalSessions = lineItems.reduce((s: number, li: any) => s + Number(li.sessions), 0);
+
+        const guarantee = Number((trainer as any)?.guarantee_amount) || 0;
+        const guaranteeTopUp = guarantee > 0 && sessionsSubtotal < guarantee ? guarantee - sessionsSubtotal : 0;
+        const guaranteeSessions = Number((trainer as any)?.guarantee_sessions) || 0;
+        const hourlyRate = Number(trainer?.default_hourly_rate) || 0;
+        const sessionTopUp = guaranteeSessions > 0 && totalSessions < guaranteeSessions
+          ? (guaranteeSessions - totalSessions) * hourlyRate : 0;
+        const managementFee = Number((trainer as any)?.management_fee) || 0;
+
+        const { data: manualItems } = await supabase
+          .from("invoice_line_items")
+          .select("*")
+          .eq("invoice_id", inv.id);
+        const manualTotal = (manualItems ?? []).reduce((s: number, li: any) => s + Number(li.amount), 0);
+
+        const subtotal = sessionsSubtotal + guaranteeTopUp + sessionTopUp + managementFee + manualTotal;
+        const hasVat = trainer?.vat_number && trainer.vat_number.trim() !== "";
+        const vatAmount = hasVat ? subtotal * 0.2 : 0;
+
+        await supabase.from("invoices").update({
+          subtotal,
+          vat_amount: vatAmount,
+          total_due: subtotal + vatAmount,
+        }).eq("id", inv.id);
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["invoices", id] });
+      toast.success("All invoice totals recalculated");
     },
     onError: (e) => toast.error(e.message),
   });
@@ -304,6 +369,13 @@ export default function InvoicePreview() {
           )}
           {invoices.length > 0 && (
             <>
+              <Button
+                variant="outline"
+                onClick={() => recalcAllMutation.mutate()}
+                disabled={recalcAllMutation.isPending}
+              >
+                {recalcAllMutation.isPending ? "Recalculating..." : "Recalculate All"}
+              </Button>
               <Button
                 variant="outline"
                 onClick={() => {

@@ -108,6 +108,15 @@ export function buildXeroCSV(
     const missingSessions = guaranteeSessions > 0 && totalSessions < guaranteeSessions ? guaranteeSessions - totalSessions : 0;
     const sessionTopUp = missingSessions * hourlyRate;
 
+    // Determine primary location for non-session rows (guarantee, mgmt fee, extras)
+    const primaryLocation = invLineItems.length > 0
+      ? mapLocationTracking(
+          invLineItems.reduce((best: any, li: any) =>
+            Number(li.sessions) > Number(best.sessions) ? li : best
+          ).location_name
+        )
+      : "HQ";
+
     let isFirstRow = true;
 
     if (invLineItems.length === 0) {
@@ -118,7 +127,7 @@ export function buildXeroCSV(
         inv.invoice_number, invoiceDate, dueDate, inv.total_due,
         "", "PT Sessions", 1, inv.subtotal,
         "324", taxType, inv.vat_amount,
-        "", "", "", "",
+        "Location", primaryLocation, "", "",
         "GBP",
       ];
       csvRows.push(row.map(escapeCSV).join(","));

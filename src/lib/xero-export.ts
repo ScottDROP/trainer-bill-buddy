@@ -167,7 +167,7 @@ export function buildXeroCSV(
         isFirstRow ? inv.total_due : "",
         "", "Guarantee Top-Up (Amount)", 1, guaranteeTopUp,
         "324", taxType, topUpVat,
-        "", "", "", "",
+        "Location", primaryLocation, "", "",
         "GBP",
       ];
       csvRows.push(row.map(escapeCSV).join(","));
@@ -187,7 +187,7 @@ export function buildXeroCSV(
         isFirstRow ? inv.total_due : "",
         "", "Guarantee Top-Up (Sessions)", missingSessions, hourlyRate,
         "324", taxType, topUpVat,
-        "", "", "", "",
+        "Location", primaryLocation, "", "",
         "GBP",
       ];
       csvRows.push(row.map(escapeCSV).join(","));
@@ -208,7 +208,7 @@ export function buildXeroCSV(
         isFirstRow ? inv.total_due : "",
         "", "Management Fee", 1, managementFee,
         "324", taxType, mfVat,
-        "", "", "", "",
+        "Location", primaryLocation, "", "",
         "GBP",
       ];
       csvRows.push(row.map(escapeCSV).join(","));
@@ -229,7 +229,7 @@ export function buildXeroCSV(
         isFirstRow ? inv.total_due : "",
         "", mi.description, mi.quantity, mi.unit_price,
         "324", taxType, miVat,
-        "", "", "", "",
+        "Location", primaryLocation, "", "",
         "GBP",
       ];
       csvRows.push(row.map(escapeCSV).join(","));

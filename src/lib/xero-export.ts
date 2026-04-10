@@ -43,13 +43,13 @@ function parseAddress(address: string | null) {
 }
 
 const LOCATION_MAP: Record<string, string> = {
-  "hq": "HQ",
-  "west hampstead": "West Hampstead",
-  "queens park": "Queens Park",
-  "mill hill": "Mill Hill",
-  "kensal rise": "Kensal Rise",
-  "kentish town": "Kentish Town",
-  "muswell hill": "Muswell Hill",
+  "hq": "0 - HQ",
+  "west hampstead": "1 - West Hampstead",
+  "queens park": "2 - Queens Park",
+  "mill hill": "3 - Mill Hill",
+  "kensal rise": "4 - Kensal Rise",
+  "kentish town": "5 - Kentish Town",
+  "muswell hill": "6 - Muswell Hill",
 };
 
 function mapLocationTracking(locationName: string): string {

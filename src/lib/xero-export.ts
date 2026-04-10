@@ -53,7 +53,7 @@ const LOCATION_MAP: Record<string, string> = {
 };
 
 function mapLocationTracking(locationName: string): string {
-  const lower = locationName.toLowerCase().trim();
+  const lower = locationName.toLowerCase().replace(/['']/g, "").trim();
   for (const [key, value] of Object.entries(LOCATION_MAP)) {
     if (lower.includes(key)) return value;
   }

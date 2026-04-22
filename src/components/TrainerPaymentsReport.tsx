@@ -8,14 +8,21 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Link } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import { Download } from "lucide-react";
+import { downloadTrainerPayParamsJSON } from "@/lib/trainer-pay-params-export";
 
 interface TrainerFees {
   id: string;
   full_name: string;
+  aliases?: string[] | null;
+  email?: string | null;
+  company_name?: string | null;
   guarantee_amount: number | null;
   guarantee_sessions: number | null;
   default_hourly_rate: number | null;
   management_fee: number | null;
+  payment_terms?: string | null;
 }
 
 interface PayRunSummary {
@@ -47,7 +54,7 @@ export default function TrainerPaymentsReport() {
     Promise.all([
       supabase
         .from("trainers")
-        .select("id, full_name, guarantee_amount, guarantee_sessions, default_hourly_rate, management_fee")
+        .select("id, full_name, aliases, email, company_name, guarantee_amount, guarantee_sessions, default_hourly_rate, management_fee, payment_terms")
         .order("full_name"),
       supabase
         .from("pay_runs")
@@ -120,6 +127,17 @@ export default function TrainerPaymentsReport() {
 
   return (
     <div className="space-y-6">
+      <div className="flex justify-end">
+        <Button
+          variant="outline"
+          onClick={() => downloadTrainerPayParamsJSON(trainers)}
+          disabled={trainers.length === 0}
+        >
+          <Download className="mr-2 h-4 w-4" />
+          Export trainer pay parameters
+        </Button>
+      </div>
+
       <Tabs defaultValue="overview" className="space-y-4">
         <TabsList className="flex-wrap h-auto gap-1">
           <TabsTrigger value="overview">Overview</TabsTrigger>

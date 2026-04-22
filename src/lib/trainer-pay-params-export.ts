@@ -11,8 +11,8 @@ function downloadTextFile(content: string, filename: string, mimeType: string) {
 export interface TrainerPayParamsExportRow {
   id: string;
   full_name: string;
-  aliases: string[] | null;
-  email: string | null;
+  aliases?: string[] | null;
+  email?: string | null;
   company_name?: string | null;
   default_hourly_rate: number | null;
   payment_terms?: string | null;

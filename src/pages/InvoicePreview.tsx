@@ -190,6 +190,7 @@ export default function InvoicePreview() {
     onError: (e) => toast.error(e.message),
   });
 
+  async function recalcInvoiceTotals(invoiceId: string) {
     const inv = invoices.find((i: any) => i.id === invoiceId);
     if (!inv) return;
     const trainer = trainers.find((t: any) => t.id === inv.trainer_id);

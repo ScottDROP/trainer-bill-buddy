@@ -828,6 +828,33 @@ export default function InvoicePreview() {
                         </TableBody>
                       </Table>
 
+                      {(() => {
+                        const selectedRowFull = rows.find((r: any) => r.id === selectedInv.pay_run_row_id);
+                        const trainerHasGuarantee =
+                          (Number((selectedTrainer as any)?.guarantee_amount) || 0) > 0 ||
+                          (Number((selectedTrainer as any)?.guarantee_sessions) || 0) > 0;
+                        if (!trainerHasGuarantee || !selectedRowFull) return null;
+                        const skip = !!selectedRowFull.skip_guarantee;
+                        return (
+                          <div className="mt-4 flex items-center justify-between p-3 rounded-md border border-dashed">
+                            <div>
+                              <Label htmlFor="skip-guarantee" className="text-sm">Skip guarantee for this pay run</Label>
+                              <p className="text-xs text-muted-foreground">Trainer's monthly guarantee top-up will be excluded from this invoice only.</p>
+                            </div>
+                            <Switch
+                              id="skip-guarantee"
+                              checked={skip}
+                              disabled={toggleSkipGuaranteeMutation.isPending}
+                              onCheckedChange={(checked) => toggleSkipGuaranteeMutation.mutate({
+                                payRunRowId: selectedRowFull.id,
+                                skip: checked,
+                                invoiceId: selectedInv.id,
+                              })}
+                            />
+                          </div>
+                        );
+                      })()}
+
                       <div className="mt-6 flex justify-end">
                         <div className="w-64 space-y-2 text-sm">
                           <div className="flex justify-between text-muted-foreground">

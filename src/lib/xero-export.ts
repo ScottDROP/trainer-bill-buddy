@@ -98,12 +98,14 @@ export function buildXeroCSV(
       (li: any) => li.pay_run_row_id === inv.pay_run_row_id
     );
 
-    // Calculate guarantee top-ups
+    // Calculate guarantee top-ups (skip when row has skip_guarantee flag)
+    const payRunRow = rows.find((r: any) => r.id === inv.pay_run_row_id);
+    const skipGuarantee = !!payRunRow?.skip_guarantee;
     const sessionsTotal = invLineItems.reduce((s: number, li: any) => s + Number(li.amount), 0);
     const totalSessions = invLineItems.reduce((s: number, li: any) => s + Number(li.sessions), 0);
-    const guarantee = Number(trainer.guarantee_amount) || 0;
+    const guarantee = skipGuarantee ? 0 : Number(trainer.guarantee_amount) || 0;
     const guaranteeTopUp = guarantee > 0 && sessionsTotal < guarantee ? guarantee - sessionsTotal : 0;
-    const guaranteeSessions = Number(trainer.guarantee_sessions) || 0;
+    const guaranteeSessions = skipGuarantee ? 0 : Number(trainer.guarantee_sessions) || 0;
     const hourlyRate = Number(trainer.default_hourly_rate) || 0;
     const missingSessions = guaranteeSessions > 0 && totalSessions < guaranteeSessions ? guaranteeSessions - totalSessions : 0;
     const sessionTopUp = missingSessions * hourlyRate;

@@ -1,0 +1,1 @@
+ALTER TABLE public.pay_run_rows ADD COLUMN IF NOT EXISTS skip_guarantee boolean NOT NULL DEFAULT false;

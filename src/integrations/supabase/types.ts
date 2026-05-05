@@ -224,6 +224,7 @@ export type Database = {
           match_status: Database["public"]["Enums"]["match_status"]
           matched_trainer_id: string | null
           pay_run_id: string
+          skip_guarantee: boolean
           total_cost: number
           total_sessions: number
           trainer_name_csv: string
@@ -236,6 +237,7 @@ export type Database = {
           match_status?: Database["public"]["Enums"]["match_status"]
           matched_trainer_id?: string | null
           pay_run_id: string
+          skip_guarantee?: boolean
           total_cost?: number
           total_sessions?: number
           trainer_name_csv: string
@@ -248,6 +250,7 @@ export type Database = {
           match_status?: Database["public"]["Enums"]["match_status"]
           matched_trainer_id?: string | null
           pay_run_id?: string
+          skip_guarantee?: boolean
           total_cost?: number
           total_sessions?: number
           trainer_name_csv?: string

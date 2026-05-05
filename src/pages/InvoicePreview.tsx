@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Separator } from "@/components/ui/separator";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { formatGBP, formatMonth } from "@/lib/currency";
 import { FileText, Download, Send, Plus, Trash2, Users } from "lucide-react";
@@ -151,6 +153,43 @@ export default function InvoicePreview() {
     onError: (e) => toast.error(e.message),
   });
 
+  const toggleSkipGuaranteeMutation = useMutation({
+    mutationFn: async ({ payRunRowId, skip, invoiceId }: { payRunRowId: string; skip: boolean; invoiceId: string }) => {
+      const { error } = await supabase
+        .from("pay_run_rows")
+        .update({ skip_guarantee: skip } as any)
+        .eq("id", payRunRowId);
+      if (error) throw error;
+      const inv = invoices.find((i: any) => i.id === invoiceId);
+      if (!inv) return;
+      const trainer = trainers.find((t: any) => t.id === inv.trainer_id);
+      const payRunItems = allLineItems.filter((li: any) => li.pay_run_row_id === payRunRowId);
+      const sessionsSubtotal = payRunItems.reduce((s: number, li: any) => s + Number(li.amount), 0);
+      const totalSessions = payRunItems.reduce((s: number, li: any) => s + Number(li.sessions), 0);
+      const guarantee = skip ? 0 : Number((trainer as any)?.guarantee_amount) || 0;
+      const guaranteeTopUp = guarantee > 0 && sessionsSubtotal < guarantee ? guarantee - sessionsSubtotal : 0;
+      const guaranteeSessions = skip ? 0 : Number((trainer as any)?.guarantee_sessions) || 0;
+      const hourlyRate = Number(trainer?.default_hourly_rate) || 0;
+      const sessionTopUp = guaranteeSessions > 0 && totalSessions < guaranteeSessions
+        ? (guaranteeSessions - totalSessions) * hourlyRate : 0;
+      const managementFee = Number((trainer as any)?.management_fee) || 0;
+      const { data: latestManual } = await supabase.from("invoice_line_items").select("*").eq("invoice_id", invoiceId);
+      const manualTotal = (latestManual ?? []).reduce((s: number, li: any) => s + Number(li.amount), 0);
+      const subtotal = sessionsSubtotal + guaranteeTopUp + sessionTopUp + managementFee + manualTotal;
+      const hasVat = trainer?.vat_number && trainer.vat_number.trim() !== "";
+      const vatAmount = hasVat ? subtotal * 0.2 : 0;
+      await supabase.from("invoices").update({
+        subtotal, vat_amount: vatAmount, total_due: subtotal + vatAmount,
+      }).eq("id", invoiceId);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["invoices", id] });
+      queryClient.invalidateQueries({ queryKey: ["pay-run-rows", id] });
+      toast.success("Guarantee setting updated");
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
   async function recalcInvoiceTotals(invoiceId: string) {
     const inv = invoices.find((i: any) => i.id === invoiceId);
     if (!inv) return;
@@ -159,10 +198,11 @@ export default function InvoicePreview() {
     const sessionsSubtotal = payRunLineItems.reduce((s: number, li: any) => s + Number(li.amount), 0);
     const totalSessions = payRunLineItems.reduce((s: number, li: any) => s + Number(li.sessions), 0);
 
-    const guarantee = Number((trainer as any)?.guarantee_amount) || 0;
+    const skipGuarantee = !!rows.find((r: any) => r.id === inv.pay_run_row_id)?.skip_guarantee;
+    const guarantee = skipGuarantee ? 0 : Number((trainer as any)?.guarantee_amount) || 0;
     const guaranteeTopUp = guarantee > 0 && sessionsSubtotal < guarantee ? guarantee - sessionsSubtotal : 0;
 
-    const guaranteeSessions = Number((trainer as any)?.guarantee_sessions) || 0;
+    const guaranteeSessions = skipGuarantee ? 0 : Number((trainer as any)?.guarantee_sessions) || 0;
     const hourlyRate = Number(trainer?.default_hourly_rate) || 0;
     const sessionTopUp = guaranteeSessions > 0 && totalSessions < guaranteeSessions
       ? (guaranteeSessions - totalSessions) * hourlyRate : 0;
@@ -198,9 +238,11 @@ export default function InvoicePreview() {
     const lineItems = freshLineItems ?? [];
     const sessionsSubtotal = lineItems.reduce((s: number, li: any) => s + Number(li.amount), 0);
     const totalSessions = lineItems.reduce((s: number, li: any) => s + Number(li.sessions), 0);
-    const guarantee = Number((trainer as any)?.guarantee_amount) || 0;
+    const row = rows.find((r: any) => r.id === rowId);
+    const skipGuarantee = !!row?.skip_guarantee;
+    const guarantee = skipGuarantee ? 0 : Number((trainer as any)?.guarantee_amount) || 0;
     const guaranteeTopUp = guarantee > 0 && sessionsSubtotal < guarantee ? guarantee - sessionsSubtotal : 0;
-    const guaranteeSessions = Number((trainer as any)?.guarantee_sessions) || 0;
+    const guaranteeSessions = skipGuarantee ? 0 : Number((trainer as any)?.guarantee_sessions) || 0;
     const hourlyRate = Number(trainer?.default_hourly_rate) || 0;
     const sessionTopUp = guaranteeSessions > 0 && totalSessions < guaranteeSessions
       ? (guaranteeSessions - totalSessions) * hourlyRate : 0;
@@ -274,9 +316,10 @@ export default function InvoicePreview() {
         const sessionsSubtotal = lineItems.reduce((s: number, li: any) => s + Number(li.amount), 0);
         const totalSessions = lineItems.reduce((s: number, li: any) => s + Number(li.sessions), 0);
 
-        const guarantee = Number((trainer as any)?.guarantee_amount) || 0;
+        const skipGuarantee = !!rows.find((r: any) => r.id === inv.pay_run_row_id)?.skip_guarantee;
+        const guarantee = skipGuarantee ? 0 : Number((trainer as any)?.guarantee_amount) || 0;
         const guaranteeTopUp = guarantee > 0 && sessionsSubtotal < guarantee ? guarantee - sessionsSubtotal : 0;
-        const guaranteeSessions = Number((trainer as any)?.guarantee_sessions) || 0;
+        const guaranteeSessions = skipGuarantee ? 0 : Number((trainer as any)?.guarantee_sessions) || 0;
         const hourlyRate = Number(trainer?.default_hourly_rate) || 0;
         const sessionTopUp = guaranteeSessions > 0 && totalSessions < guaranteeSessions
           ? (guaranteeSessions - totalSessions) * hourlyRate : 0;
@@ -437,9 +480,10 @@ export default function InvoicePreview() {
             const sessionsSubtotal = lineItems.reduce((s: number, li: any) => s + Number(li.amount), 0);
             const totalSessions = lineItems.reduce((s: number, li: any) => s + Number(li.sessions), 0);
 
-            const guaranteeAmt = Number((trainer as any)?.guarantee_amount) || 0;
+            const skipGuarantee = !!rows.find((r: any) => r.id === inv.pay_run_row_id)?.skip_guarantee;
+            const guaranteeAmt = skipGuarantee ? 0 : Number((trainer as any)?.guarantee_amount) || 0;
             const guaranteeTopUp = guaranteeAmt > 0 && sessionsSubtotal < guaranteeAmt ? guaranteeAmt - sessionsSubtotal : 0;
-            const guaranteeSessions = Number((trainer as any)?.guarantee_sessions) || 0;
+            const guaranteeSessions = skipGuarantee ? 0 : Number((trainer as any)?.guarantee_sessions) || 0;
             const hourlyRate = Number(trainer?.default_hourly_rate) || 0;
             const sessionTopUp = guaranteeSessions > 0 && totalSessions < guaranteeSessions
               ? (guaranteeSessions - totalSessions) * hourlyRate : 0;
@@ -664,9 +708,10 @@ export default function InvoicePreview() {
                           {(() => {
                             const sessionsTotal = selectedLineItems.reduce((s: number, li: any) => s + Number(li.amount), 0);
                             const totalSessions = selectedLineItems.reduce((s: number, li: any) => s + Number(li.sessions), 0);
-                            const guarantee = Number((selectedTrainer as any)?.guarantee_amount) || 0;
+                            const skipGuarantee = !!rows.find((r: any) => r.id === selectedInv.pay_run_row_id)?.skip_guarantee;
+                            const guarantee = skipGuarantee ? 0 : Number((selectedTrainer as any)?.guarantee_amount) || 0;
                             const amountTopUp = guarantee > 0 && sessionsTotal < guarantee ? guarantee - sessionsTotal : 0;
-                            const guaranteeSessions = Number((selectedTrainer as any)?.guarantee_sessions) || 0;
+                            const guaranteeSessions = skipGuarantee ? 0 : Number((selectedTrainer as any)?.guarantee_sessions) || 0;
                             const hourlyRate = Number(selectedTrainer?.default_hourly_rate) || 0;
                             const missingSessions = guaranteeSessions > 0 && totalSessions < guaranteeSessions ? guaranteeSessions - totalSessions : 0;
                             const sessionTopUp = missingSessions * hourlyRate;
@@ -782,6 +827,33 @@ export default function InvoicePreview() {
                           </TableRow>
                         </TableBody>
                       </Table>
+
+                      {(() => {
+                        const selectedRowFull = rows.find((r: any) => r.id === selectedInv.pay_run_row_id);
+                        const trainerHasGuarantee =
+                          (Number((selectedTrainer as any)?.guarantee_amount) || 0) > 0 ||
+                          (Number((selectedTrainer as any)?.guarantee_sessions) || 0) > 0;
+                        if (!trainerHasGuarantee || !selectedRowFull) return null;
+                        const skip = !!selectedRowFull.skip_guarantee;
+                        return (
+                          <div className="mt-4 flex items-center justify-between p-3 rounded-md border border-dashed">
+                            <div>
+                              <Label htmlFor="skip-guarantee" className="text-sm">Skip guarantee for this pay run</Label>
+                              <p className="text-xs text-muted-foreground">Trainer's monthly guarantee top-up will be excluded from this invoice only.</p>
+                            </div>
+                            <Switch
+                              id="skip-guarantee"
+                              checked={skip}
+                              disabled={toggleSkipGuaranteeMutation.isPending}
+                              onCheckedChange={(checked) => toggleSkipGuaranteeMutation.mutate({
+                                payRunRowId: selectedRowFull.id,
+                                skip: checked,
+                                invoiceId: selectedInv.id,
+                              })}
+                            />
+                          </div>
+                        );
+                      })()}
 
                       <div className="mt-6 flex justify-end">
                         <div className="w-64 space-y-2 text-sm">

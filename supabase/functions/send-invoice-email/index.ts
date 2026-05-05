@@ -232,18 +232,20 @@ Deno.serve(async (req) => {
     const trainerIds = [...new Set(invoices!.map((inv: any) => inv.trainer_id))];
     const payRunRowIds = invoices!.map((inv: any) => inv.pay_run_row_id);
 
-    // Fetch trainers, company settings, pay run line items, and manual invoice line items in parallel
-    const [trainersRes, settingsRes, lineItemsRes, manualItemsRes] = await Promise.all([
+    // Fetch trainers, company settings, pay run rows + line items, and manual invoice line items in parallel
+    const [trainersRes, settingsRes, lineItemsRes, manualItemsRes, payRunRowsRes] = await Promise.all([
       supabase.from("trainers").select("*").in("id", trainerIds),
       supabase.from("company_settings").select("*").limit(1).maybeSingle(),
       supabase.from("pay_run_line_items").select("*").in("pay_run_row_id", payRunRowIds),
       supabase.from("invoice_line_items").select("*").in("invoice_id", invoice_ids),
+      supabase.from("pay_run_rows").select("id, skip_guarantee").in("id", payRunRowIds),
     ]);
 
     const trainers = trainersRes.data;
     const companySettings = settingsRes.data;
     const payRunLineItems = lineItemsRes.data ?? [];
     const manualItems = manualItemsRes.data ?? [];
+    const payRunRows = payRunRowsRes.data ?? [];
 
     const results: { invoice_id: string; trainer: string; email: string; success: boolean; attached?: boolean; error?: string }[] = [];
 
@@ -262,11 +264,13 @@ Deno.serve(async (req) => {
 
       const invPayRunItems = payRunLineItems.filter((li: any) => li.pay_run_row_id === invoice.pay_run_row_id);
       const invManualItems = manualItems.filter((li: any) => li.invoice_id === invoice.id);
+      const skipGuarantee = !!payRunRows.find((r: any) => r.id === invoice.pay_run_row_id)?.skip_guarantee;
 
       const unifiedItems = buildUnifiedLineItems({
         payRunLineItems: invPayRunItems,
         trainer,
         manualItems: invManualItems,
+        skipGuarantee,
       });
 
       // Build email HTML with full line items

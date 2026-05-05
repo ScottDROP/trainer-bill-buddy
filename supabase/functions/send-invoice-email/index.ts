@@ -22,8 +22,9 @@ function buildUnifiedLineItems(params: {
   payRunLineItems: any[];
   trainer: any;
   manualItems: any[];
+  skipGuarantee?: boolean;
 }): UnifiedLineItem[] {
-  const { payRunLineItems, trainer, manualItems } = params;
+  const { payRunLineItems, trainer, manualItems, skipGuarantee } = params;
   const items: UnifiedLineItem[] = [];
 
   // Session line items
@@ -40,14 +41,14 @@ function buildUnifiedLineItems(params: {
   const totalSessions = payRunLineItems.reduce((s: number, li: any) => s + Number(li.sessions), 0);
 
   // Guarantee top-up (amount)
-  const guarantee = Number(trainer?.guarantee_amount) || 0;
+  const guarantee = skipGuarantee ? 0 : Number(trainer?.guarantee_amount) || 0;
   if (guarantee > 0 && sessionsTotal < guarantee) {
     const topUp = guarantee - sessionsTotal;
     items.push({ qty: 1, description: "Guarantee Top-Up (Amount)", unitPrice: topUp, amount: topUp });
   }
 
   // Guarantee top-up (sessions)
-  const guaranteeSessions = Number(trainer?.guarantee_sessions) || 0;
+  const guaranteeSessions = skipGuarantee ? 0 : Number(trainer?.guarantee_sessions) || 0;
   const hourlyRate = Number(trainer?.default_hourly_rate) || 0;
   if (guaranteeSessions > 0 && totalSessions < guaranteeSessions) {
     const missing = guaranteeSessions - totalSessions;

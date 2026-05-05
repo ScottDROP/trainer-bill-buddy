@@ -153,7 +153,43 @@ export default function InvoicePreview() {
     onError: (e) => toast.error(e.message),
   });
 
-  async function recalcInvoiceTotals(invoiceId: string) {
+  const toggleSkipGuaranteeMutation = useMutation({
+    mutationFn: async ({ payRunRowId, skip, invoiceId }: { payRunRowId: string; skip: boolean; invoiceId: string }) => {
+      const { error } = await supabase
+        .from("pay_run_rows")
+        .update({ skip_guarantee: skip } as any)
+        .eq("id", payRunRowId);
+      if (error) throw error;
+      const inv = invoices.find((i: any) => i.id === invoiceId);
+      if (!inv) return;
+      const trainer = trainers.find((t: any) => t.id === inv.trainer_id);
+      const payRunItems = allLineItems.filter((li: any) => li.pay_run_row_id === payRunRowId);
+      const sessionsSubtotal = payRunItems.reduce((s: number, li: any) => s + Number(li.amount), 0);
+      const totalSessions = payRunItems.reduce((s: number, li: any) => s + Number(li.sessions), 0);
+      const guarantee = skip ? 0 : Number((trainer as any)?.guarantee_amount) || 0;
+      const guaranteeTopUp = guarantee > 0 && sessionsSubtotal < guarantee ? guarantee - sessionsSubtotal : 0;
+      const guaranteeSessions = skip ? 0 : Number((trainer as any)?.guarantee_sessions) || 0;
+      const hourlyRate = Number(trainer?.default_hourly_rate) || 0;
+      const sessionTopUp = guaranteeSessions > 0 && totalSessions < guaranteeSessions
+        ? (guaranteeSessions - totalSessions) * hourlyRate : 0;
+      const managementFee = Number((trainer as any)?.management_fee) || 0;
+      const { data: latestManual } = await supabase.from("invoice_line_items").select("*").eq("invoice_id", invoiceId);
+      const manualTotal = (latestManual ?? []).reduce((s: number, li: any) => s + Number(li.amount), 0);
+      const subtotal = sessionsSubtotal + guaranteeTopUp + sessionTopUp + managementFee + manualTotal;
+      const hasVat = trainer?.vat_number && trainer.vat_number.trim() !== "";
+      const vatAmount = hasVat ? subtotal * 0.2 : 0;
+      await supabase.from("invoices").update({
+        subtotal, vat_amount: vatAmount, total_due: subtotal + vatAmount,
+      }).eq("id", invoiceId);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["invoices", id] });
+      queryClient.invalidateQueries({ queryKey: ["pay-run-rows", id] });
+      toast.success("Guarantee setting updated");
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
     const inv = invoices.find((i: any) => i.id === invoiceId);
     if (!inv) return;
     const trainer = trainers.find((t: any) => t.id === inv.trainer_id);

@@ -159,10 +159,11 @@ export default function InvoicePreview() {
     const sessionsSubtotal = payRunLineItems.reduce((s: number, li: any) => s + Number(li.amount), 0);
     const totalSessions = payRunLineItems.reduce((s: number, li: any) => s + Number(li.sessions), 0);
 
-    const guarantee = Number((trainer as any)?.guarantee_amount) || 0;
+    const skipGuarantee = !!rows.find((r: any) => r.id === inv.pay_run_row_id)?.skip_guarantee;
+    const guarantee = skipGuarantee ? 0 : Number((trainer as any)?.guarantee_amount) || 0;
     const guaranteeTopUp = guarantee > 0 && sessionsSubtotal < guarantee ? guarantee - sessionsSubtotal : 0;
 
-    const guaranteeSessions = Number((trainer as any)?.guarantee_sessions) || 0;
+    const guaranteeSessions = skipGuarantee ? 0 : Number((trainer as any)?.guarantee_sessions) || 0;
     const hourlyRate = Number(trainer?.default_hourly_rate) || 0;
     const sessionTopUp = guaranteeSessions > 0 && totalSessions < guaranteeSessions
       ? (guaranteeSessions - totalSessions) * hourlyRate : 0;

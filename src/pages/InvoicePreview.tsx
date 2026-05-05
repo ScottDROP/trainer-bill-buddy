@@ -669,9 +669,10 @@ export default function InvoicePreview() {
                           {(() => {
                             const sessionsTotal = selectedLineItems.reduce((s: number, li: any) => s + Number(li.amount), 0);
                             const totalSessions = selectedLineItems.reduce((s: number, li: any) => s + Number(li.sessions), 0);
-                            const guarantee = Number((selectedTrainer as any)?.guarantee_amount) || 0;
+                            const skipGuarantee = !!rows.find((r: any) => r.id === selectedInv.pay_run_row_id)?.skip_guarantee;
+                            const guarantee = skipGuarantee ? 0 : Number((selectedTrainer as any)?.guarantee_amount) || 0;
                             const amountTopUp = guarantee > 0 && sessionsTotal < guarantee ? guarantee - sessionsTotal : 0;
-                            const guaranteeSessions = Number((selectedTrainer as any)?.guarantee_sessions) || 0;
+                            const guaranteeSessions = skipGuarantee ? 0 : Number((selectedTrainer as any)?.guarantee_sessions) || 0;
                             const hourlyRate = Number(selectedTrainer?.default_hourly_rate) || 0;
                             const missingSessions = guaranteeSessions > 0 && totalSessions < guaranteeSessions ? guaranteeSessions - totalSessions : 0;
                             const sessionTopUp = missingSessions * hourlyRate;

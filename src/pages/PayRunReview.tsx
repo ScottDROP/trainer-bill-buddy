@@ -107,6 +107,31 @@ export default function PayRunReview() {
       const unmatched = rows.filter((r: any) => !r.matched_trainer_id);
       if (unmatched.length > 0) throw new Error(`${unmatched.length} trainers still unmatched`);
 
+      for (const row of rows) {
+        const trainer = trainers.find((t: any) => t.id === row.matched_trainer_id);
+        const effectiveRate = Number((trainer as any)?.default_hourly_rate) || Number(row.hourly_rate_csv) || 0;
+        const { data: freshLineItems, error: fetchError } = await supabase
+          .from("pay_run_line_items")
+          .select("*")
+          .eq("pay_run_row_id", row.id);
+        if (fetchError) throw fetchError;
+
+        const correctedTotal = (freshLineItems ?? []).reduce((sum: number, li: any) => sum + Number(li.sessions) * effectiveRate, 0);
+        for (const li of freshLineItems ?? []) {
+          const { error: liError } = await supabase
+            .from("pay_run_line_items")
+            .update({ rate: effectiveRate, amount: Number(li.sessions) * effectiveRate })
+            .eq("id", li.id);
+          if (liError) throw liError;
+        }
+
+        const { error: rowError } = await supabase
+          .from("pay_run_rows")
+          .update({ hourly_rate_csv: effectiveRate, total_cost: correctedTotal })
+          .eq("id", row.id);
+        if (rowError) throw rowError;
+      }
+
       const { error } = await supabase
         .from("pay_runs")
         .update({ status: "reviewed" as any })
@@ -144,6 +169,13 @@ export default function PayRunReview() {
   const selectedLineItems = selectedRow
     ? allLineItems.filter((li: any) => li.pay_run_row_id === selectedRow.id)
     : [];
+
+  const getEffectiveRate = (row: any) => {
+    const trainer = trainers.find((t: any) => t.id === row?.matched_trainer_id);
+    return Number(trainer?.default_hourly_rate) || Number(row?.hourly_rate_csv) || 0;
+  };
+
+  const getEffectiveTotal = (row: any) => Number(row?.total_sessions || 0) * getEffectiveRate(row);
 
   return (
     <div className="space-y-6">

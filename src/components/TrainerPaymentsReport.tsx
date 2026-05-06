@@ -104,18 +104,21 @@ export default function TrainerPaymentsReport() {
   const payRunMgmtRows = payRunRows.filter(
     (r) => r.trainer && r.trainer.management_fee && r.trainer.management_fee > 0
   );
+  const getEffectiveRate = (r: PayRunRowWithTrainer) => Number(r.trainer?.default_hourly_rate) || Number(r.hourly_rate_csv) || 0;
+  const getSessionEarnings = (r: PayRunRowWithTrainer) => Number(r.total_sessions) * getEffectiveRate(r);
 
   const payRunGuaranteeTopUps = payRunGuaranteeRows.map((r) => {
     const t = r.trainer!;
+    const sessionEarnings = getSessionEarnings(r);
     let topUp = 0;
-    if (t.guarantee_amount && t.guarantee_amount > 0 && r.total_cost < t.guarantee_amount) {
-      topUp = t.guarantee_amount - r.total_cost;
+    if (t.guarantee_amount && t.guarantee_amount > 0 && sessionEarnings < t.guarantee_amount) {
+      topUp = t.guarantee_amount - sessionEarnings;
     }
     if (t.guarantee_sessions && t.guarantee_sessions > 0 && r.total_sessions < t.guarantee_sessions) {
-      const sessionTopUp = (t.guarantee_sessions - r.total_sessions) * r.hourly_rate_csv;
+      const sessionTopUp = (t.guarantee_sessions - r.total_sessions) * getEffectiveRate(r);
       topUp = Math.max(topUp, sessionTopUp);
     }
-    return { ...r, topUp };
+    return { ...r, sessionEarnings, topUp };
   });
 
   const totalPayRunGuaranteeTopUp = payRunGuaranteeTopUps.reduce((s, r) => s + r.topUp, 0);

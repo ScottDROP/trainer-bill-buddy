@@ -164,7 +164,7 @@ export default function InvoicePreview() {
       if (!inv) return;
       const trainer = trainers.find((t: any) => t.id === inv.trainer_id);
       const payRunItems = allLineItems.filter((li: any) => li.pay_run_row_id === payRunRowId);
-      const sessionsSubtotal = payRunItems.reduce((s: number, li: any) => s + Number(li.amount), 0);
+      const sessionsSubtotal = payRunItems.reduce((s: number, li: any) => s + getEffectiveLineAmount(trainer, li), 0);
       const totalSessions = payRunItems.reduce((s: number, li: any) => s + Number(li.sessions), 0);
       const guarantee = skip ? 0 : Number((trainer as any)?.guarantee_amount) || 0;
       const guaranteeTopUp = guarantee > 0 && sessionsSubtotal < guarantee ? guarantee - sessionsSubtotal : 0;
@@ -195,7 +195,7 @@ export default function InvoicePreview() {
     if (!inv) return;
     const trainer = trainers.find((t: any) => t.id === inv.trainer_id);
     const payRunLineItems = allLineItems.filter((li: any) => li.pay_run_row_id === inv.pay_run_row_id);
-    const sessionsSubtotal = payRunLineItems.reduce((s: number, li: any) => s + Number(li.amount), 0);
+    const sessionsSubtotal = payRunLineItems.reduce((s: number, li: any) => s + getEffectiveLineAmount(trainer, li), 0);
     const totalSessions = payRunLineItems.reduce((s: number, li: any) => s + Number(li.sessions), 0);
 
     const skipGuarantee = !!rows.find((r: any) => r.id === inv.pay_run_row_id)?.skip_guarantee;
@@ -236,7 +236,7 @@ export default function InvoicePreview() {
       .select("*")
       .eq("pay_run_row_id", rowId);
     const lineItems = freshLineItems ?? [];
-    const sessionsSubtotal = lineItems.reduce((s: number, li: any) => s + Number(li.amount), 0);
+    const sessionsSubtotal = lineItems.reduce((s: number, li: any) => s + getEffectiveLineAmount(trainer, li), 0);
     const totalSessions = lineItems.reduce((s: number, li: any) => s + Number(li.sessions), 0);
     const row = rows.find((r: any) => r.id === rowId);
     const skipGuarantee = !!row?.skip_guarantee;
@@ -313,7 +313,7 @@ export default function InvoicePreview() {
           .select("*")
           .eq("pay_run_row_id", inv.pay_run_row_id);
         const lineItems = freshLineItems ?? [];
-        const sessionsSubtotal = lineItems.reduce((s: number, li: any) => s + Number(li.amount), 0);
+        const sessionsSubtotal = lineItems.reduce((s: number, li: any) => s + getEffectiveLineAmount(trainer, li), 0);
         const totalSessions = lineItems.reduce((s: number, li: any) => s + Number(li.sessions), 0);
 
         const skipGuarantee = !!rows.find((r: any) => r.id === inv.pay_run_row_id)?.skip_guarantee;

@@ -396,6 +396,14 @@ export default function InvoicePreview() {
     ? manualLineItems.filter((li: any) => li.invoice_id === selectedInv.id)
     : [];
 
+  function getEffectiveLineRate(trainer: any, lineItem: any) {
+    return Number(trainer?.default_hourly_rate) || Number(lineItem?.rate) || 0;
+  }
+
+  function getEffectiveLineAmount(trainer: any, lineItem: any) {
+    return Number(lineItem?.sessions) * getEffectiveLineRate(trainer, lineItem);
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">

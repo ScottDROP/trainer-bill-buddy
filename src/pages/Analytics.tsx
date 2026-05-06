@@ -76,7 +76,7 @@ export default function Analytics() {
           }
 
           const sessions = Number(row.total_sessions);
-          const rate = Number(row.hourly_rate_csv) || Number(trainer.default_hourly_rate) || 0;
+          const rate = Number(trainer.default_hourly_rate) || Number(row.hourly_rate_csv) || 0;
           const guaranteeSessions = Number(trainer.guarantee_sessions) || 0;
           const guaranteeAmount = Number(trainer.guarantee_amount) || 0;
           const mgmtFee = Number(trainer.management_fee) || 0;
@@ -90,7 +90,7 @@ export default function Analytics() {
             if (earned < guaranteeAmount) topUp = guaranteeAmount - earned;
           }
 
-          realHours += Number(row.total_cost);
+          realHours += sessions * rate;
           if (topUp > 0) {
             guaranteeTopUps += topUp;
             guaranteeTrainerCount++;

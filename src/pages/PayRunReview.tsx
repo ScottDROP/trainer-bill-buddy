@@ -275,9 +275,9 @@ export default function PayRunReview() {
                         />
                       )}
                     </TableCell>
-                    <TableCell>{formatGBP(row.hourly_rate_csv)}/hr</TableCell>
+                    <TableCell>{formatGBP(getEffectiveRate(row))}/hr</TableCell>
                     <TableCell>{row.total_sessions}</TableCell>
-                    <TableCell>{formatGBP(row.total_cost)}</TableCell>
+                    <TableCell>{formatGBP(getEffectiveTotal(row))}</TableCell>
                     <TableCell>
                       {row.validation_warnings && row.validation_warnings.length > 0 && (
                         <div className="flex flex-col gap-1">
@@ -333,8 +333,8 @@ export default function PayRunReview() {
                     <TableRow key={li.id}>
                       <TableCell>{li.location_name}</TableCell>
                       <TableCell className="text-right">{li.sessions}</TableCell>
-                      <TableCell className="text-right">{formatGBP(li.rate)}</TableCell>
-                      <TableCell className="text-right">{formatGBP(li.amount)}</TableCell>
+                      <TableCell className="text-right">{formatGBP(getEffectiveRate(selectedRow))}</TableCell>
+                      <TableCell className="text-right">{formatGBP(Number(li.sessions) * getEffectiveRate(selectedRow))}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -344,7 +344,7 @@ export default function PayRunReview() {
 
               <div className="flex justify-between text-sm font-medium">
                 <span>Total: {selectedRow.total_sessions} sessions</span>
-                <span>{formatGBP(selectedRow.total_cost)}</span>
+                <span>{formatGBP(getEffectiveTotal(selectedRow))}</span>
               </div>
             </div>
           )}

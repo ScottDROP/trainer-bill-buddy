@@ -347,7 +347,7 @@ export default function TrainerPaymentsReport() {
                                 </Link>
                               </TableCell>
                               <TableCell className="text-right">{r.total_sessions}</TableCell>
-                              <TableCell className="text-right">{formatGBP(r.total_cost)}</TableCell>
+                              <TableCell className="text-right">{formatGBP(r.sessionEarnings)}</TableCell>
                               <TableCell className="text-right">
                                 {r.trainer!.guarantee_amount && r.trainer!.guarantee_amount > 0 && (
                                   <Badge variant="secondary">{formatGBP(r.trainer!.guarantee_amount)}</Badge>
@@ -368,7 +368,7 @@ export default function TrainerPaymentsReport() {
                           <TableRow className="font-semibold bg-muted/50">
                             <TableCell>Total</TableCell>
                             <TableCell className="text-right">{payRunGuaranteeTopUps.reduce((s, r) => s + r.total_sessions, 0)}</TableCell>
-                            <TableCell className="text-right">{formatGBP(payRunGuaranteeTopUps.reduce((s, r) => s + r.total_cost, 0))}</TableCell>
+                            <TableCell className="text-right">{formatGBP(payRunGuaranteeTopUps.reduce((s, r) => s + r.sessionEarnings, 0))}</TableCell>
                             <TableCell className="text-right">—</TableCell>
                             <TableCell className="text-right">{formatGBP(totalPayRunGuaranteeTopUp)}</TableCell>
                           </TableRow>
@@ -403,7 +403,7 @@ export default function TrainerPaymentsReport() {
                                   {r.trainer_name_csv}
                                 </Link>
                               </TableCell>
-                              <TableCell className="text-right">{formatGBP(r.total_cost)}</TableCell>
+                              <TableCell className="text-right">{formatGBP(getSessionEarnings(r))}</TableCell>
                               <TableCell className="text-right">
                                 <Badge variant="secondary">{formatGBP(r.trainer!.management_fee!)}</Badge>
                               </TableCell>
@@ -411,7 +411,7 @@ export default function TrainerPaymentsReport() {
                           ))}
                           <TableRow className="font-semibold bg-muted/50">
                             <TableCell>Total</TableCell>
-                            <TableCell className="text-right">{formatGBP(payRunMgmtRows.reduce((s, r) => s + r.total_cost, 0))}</TableCell>
+                            <TableCell className="text-right">{formatGBP(payRunMgmtRows.reduce((s, r) => s + getSessionEarnings(r), 0))}</TableCell>
                             <TableCell className="text-right">{formatGBP(totalPayRunMgmtFees)}</TableCell>
                           </TableRow>
                         </TableBody>

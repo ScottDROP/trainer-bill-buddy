@@ -101,7 +101,9 @@ export function buildXeroCSV(
     // Calculate guarantee top-ups (skip when row has skip_guarantee flag)
     const payRunRow = rows.find((r: any) => r.id === inv.pay_run_row_id);
     const skipGuarantee = !!payRunRow?.skip_guarantee;
-    const sessionsTotal = invLineItems.reduce((s: number, li: any) => s + Number(li.amount), 0);
+    const lineRate = (li: any) => Number(trainer.default_hourly_rate) || Number(li.rate) || 0;
+    const lineAmount = (li: any) => Number(li.sessions) * lineRate(li);
+    const sessionsTotal = invLineItems.reduce((s: number, li: any) => s + lineAmount(li), 0);
     const totalSessions = invLineItems.reduce((s: number, li: any) => s + Number(li.sessions), 0);
     const guarantee = skipGuarantee ? 0 : Number(trainer.guarantee_amount) || 0;
     const guaranteeTopUp = guarantee > 0 && sessionsTotal < guarantee ? guarantee - sessionsTotal : 0;
@@ -136,7 +138,9 @@ export function buildXeroCSV(
       isFirstRow = false;
     } else {
       invLineItems.forEach((li: any) => {
-        const liVat = hasVat ? Number(li.amount) * 0.2 : 0;
+        const amount = lineAmount(li);
+        const rate = lineRate(li);
+        const liVat = hasVat ? amount * 0.2 : 0;
         const locationName = mapLocationTracking(li.location_name);
         const row = [
           contactName, trainer.email || "",
@@ -146,7 +150,7 @@ export function buildXeroCSV(
           isFirstRow ? addr.postalCode : "", isFirstRow ? addr.country : "",
           inv.invoice_number, invoiceDate, dueDate,
           isFirstRow ? inv.total_due : "",
-          "", `PT Sessions at ${li.location_name}`, li.sessions, li.rate,
+          "", `PT Sessions at ${li.location_name}`, li.sessions, rate,
           "324", taxType, liVat,
           "Location", locationName, "", "",
           "GBP",

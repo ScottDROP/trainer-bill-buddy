@@ -70,17 +70,34 @@ export default function PayRunReview() {
 
   const matchMutation = useMutation({
     mutationFn: async ({ rowId, trainerId }: { rowId: string; trainerId: string }) => {
+      const row = rows.find((r: any) => r.id === rowId);
+      const trainer = trainers.find((t: any) => t.id === trainerId);
+      const effectiveRate = Number((trainer as any)?.default_hourly_rate) || Number(row?.hourly_rate_csv) || 0;
+      const rowLineItems = allLineItems.filter((li: any) => li.pay_run_row_id === rowId);
+      const correctedTotal = rowLineItems.reduce((sum: number, li: any) => sum + Number(li.sessions) * effectiveRate, 0);
+
+      for (const li of rowLineItems) {
+        const { error: liError } = await supabase
+          .from("pay_run_line_items")
+          .update({ rate: effectiveRate, amount: Number(li.sessions) * effectiveRate })
+          .eq("id", li.id);
+        if (liError) throw liError;
+      }
+
       const { error } = await supabase
         .from("pay_run_rows")
         .update({
           matched_trainer_id: trainerId,
           match_status: "manual" as any,
+          hourly_rate_csv: effectiveRate,
+          total_cost: correctedTotal,
         })
         .eq("id", rowId);
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["pay-run-rows", id] });
+      queryClient.invalidateQueries({ queryKey: ["pay-run-line-items", id] });
       toast.success("Trainer matched");
     },
   });

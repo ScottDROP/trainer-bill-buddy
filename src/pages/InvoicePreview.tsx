@@ -485,7 +485,7 @@ export default function InvoicePreview() {
           invoices.forEach((inv: any) => {
             const trainer = trainers.find((t: any) => t.id === inv.trainer_id);
             const lineItems = allLineItems.filter((li: any) => li.pay_run_row_id === inv.pay_run_row_id);
-            const sessionsSubtotal = lineItems.reduce((s: number, li: any) => s + Number(li.amount), 0);
+            const sessionsSubtotal = lineItems.reduce((s: number, li: any) => s + getEffectiveLineAmount(trainer, li), 0);
             const totalSessions = lineItems.reduce((s: number, li: any) => s + Number(li.sessions), 0);
 
             const skipGuarantee = !!rows.find((r: any) => r.id === inv.pay_run_row_id)?.skip_guarantee;
@@ -708,13 +708,13 @@ export default function InvoicePreview() {
                             <TableRow key={li.id}>
                               <TableCell>{li.sessions}</TableCell>
                               <TableCell>PT Sessions at {li.location_name}</TableCell>
-                              <TableCell className="text-right">{formatGBP(li.rate)}</TableCell>
-                              <TableCell className="text-right">{formatGBP(li.amount)}</TableCell>
+                              <TableCell className="text-right">{formatGBP(getEffectiveLineRate(selectedTrainer, li))}</TableCell>
+                              <TableCell className="text-right">{formatGBP(getEffectiveLineAmount(selectedTrainer, li))}</TableCell>
                               <TableCell></TableCell>
                             </TableRow>
                           ))}
                           {(() => {
-                            const sessionsTotal = selectedLineItems.reduce((s: number, li: any) => s + Number(li.amount), 0);
+                            const sessionsTotal = selectedLineItems.reduce((s: number, li: any) => s + getEffectiveLineAmount(selectedTrainer, li), 0);
                             const totalSessions = selectedLineItems.reduce((s: number, li: any) => s + Number(li.sessions), 0);
                             const skipGuarantee = !!rows.find((r: any) => r.id === selectedInv.pay_run_row_id)?.skip_guarantee;
                             const guarantee = skipGuarantee ? 0 : Number((selectedTrainer as any)?.guarantee_amount) || 0;

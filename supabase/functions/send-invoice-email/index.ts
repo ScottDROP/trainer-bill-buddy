@@ -29,15 +29,20 @@ function buildUnifiedLineItems(params: {
 
   // Session line items
   for (const li of payRunLineItems) {
+    const unitPrice = Number(trainer?.default_hourly_rate) || Number(li.rate) || 0;
+    const amount = Number(li.sessions) * unitPrice;
     items.push({
       qty: Number(li.sessions),
       description: `PT Sessions at ${li.location_name}`,
-      unitPrice: Number(li.rate),
-      amount: Number(li.amount),
+      unitPrice,
+      amount,
     });
   }
 
-  const sessionsTotal = payRunLineItems.reduce((s: number, li: any) => s + Number(li.amount), 0);
+  const sessionsTotal = payRunLineItems.reduce((s: number, li: any) => {
+    const unitPrice = Number(trainer?.default_hourly_rate) || Number(li.rate) || 0;
+    return s + Number(li.sessions) * unitPrice;
+  }, 0);
   const totalSessions = payRunLineItems.reduce((s: number, li: any) => s + Number(li.sessions), 0);
 
   // Guarantee top-up (amount)

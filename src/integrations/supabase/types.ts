@@ -676,6 +676,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_trainer_effective_rate: {
+        Args: { _fallback_rate: number; _trainer_id: string }
+        Returns: number
+      }
       has_permission: {
         Args: {
           _permission: Database["public"]["Enums"]["app_permission"]
@@ -684,6 +688,10 @@ export type Database = {
         Returns: boolean
       }
       is_admin: { Args: { _user_id: string }; Returns: boolean }
+      sync_pay_run_row_total: {
+        Args: { _pay_run_row_id: string }
+        Returns: undefined
+      }
     }
     Enums: {
       app_permission:

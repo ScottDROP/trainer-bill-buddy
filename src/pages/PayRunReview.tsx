@@ -70,17 +70,34 @@ export default function PayRunReview() {
 
   const matchMutation = useMutation({
     mutationFn: async ({ rowId, trainerId }: { rowId: string; trainerId: string }) => {
+      const row = rows.find((r: any) => r.id === rowId);
+      const trainer = trainers.find((t: any) => t.id === trainerId);
+      const effectiveRate = Number((trainer as any)?.default_hourly_rate) || Number(row?.hourly_rate_csv) || 0;
+      const rowLineItems = allLineItems.filter((li: any) => li.pay_run_row_id === rowId);
+      const correctedTotal = rowLineItems.reduce((sum: number, li: any) => sum + Number(li.sessions) * effectiveRate, 0);
+
+      for (const li of rowLineItems) {
+        const { error: liError } = await supabase
+          .from("pay_run_line_items")
+          .update({ rate: effectiveRate, amount: Number(li.sessions) * effectiveRate })
+          .eq("id", li.id);
+        if (liError) throw liError;
+      }
+
       const { error } = await supabase
         .from("pay_run_rows")
         .update({
           matched_trainer_id: trainerId,
           match_status: "manual" as any,
+          hourly_rate_csv: effectiveRate,
+          total_cost: correctedTotal,
         })
         .eq("id", rowId);
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["pay-run-rows", id] });
+      queryClient.invalidateQueries({ queryKey: ["pay-run-line-items", id] });
       toast.success("Trainer matched");
     },
   });
@@ -89,6 +106,31 @@ export default function PayRunReview() {
     mutationFn: async () => {
       const unmatched = rows.filter((r: any) => !r.matched_trainer_id);
       if (unmatched.length > 0) throw new Error(`${unmatched.length} trainers still unmatched`);
+
+      for (const row of rows) {
+        const trainer = trainers.find((t: any) => t.id === row.matched_trainer_id);
+        const effectiveRate = Number((trainer as any)?.default_hourly_rate) || Number(row.hourly_rate_csv) || 0;
+        const { data: freshLineItems, error: fetchError } = await supabase
+          .from("pay_run_line_items")
+          .select("*")
+          .eq("pay_run_row_id", row.id);
+        if (fetchError) throw fetchError;
+
+        const correctedTotal = (freshLineItems ?? []).reduce((sum: number, li: any) => sum + Number(li.sessions) * effectiveRate, 0);
+        for (const li of freshLineItems ?? []) {
+          const { error: liError } = await supabase
+            .from("pay_run_line_items")
+            .update({ rate: effectiveRate, amount: Number(li.sessions) * effectiveRate })
+            .eq("id", li.id);
+          if (liError) throw liError;
+        }
+
+        const { error: rowError } = await supabase
+          .from("pay_run_rows")
+          .update({ hourly_rate_csv: effectiveRate, total_cost: correctedTotal })
+          .eq("id", row.id);
+        if (rowError) throw rowError;
+      }
 
       const { error } = await supabase
         .from("pay_runs")
@@ -127,6 +169,13 @@ export default function PayRunReview() {
   const selectedLineItems = selectedRow
     ? allLineItems.filter((li: any) => li.pay_run_row_id === selectedRow.id)
     : [];
+
+  const getEffectiveRate = (row: any) => {
+    const trainer = trainers.find((t: any) => t.id === row?.matched_trainer_id);
+    return Number(trainer?.default_hourly_rate) || Number(row?.hourly_rate_csv) || 0;
+  };
+
+  const getEffectiveTotal = (row: any) => Number(row?.total_sessions || 0) * getEffectiveRate(row);
 
   return (
     <div className="space-y-6">
@@ -226,9 +275,9 @@ export default function PayRunReview() {
                         />
                       )}
                     </TableCell>
-                    <TableCell>{formatGBP(row.hourly_rate_csv)}/hr</TableCell>
+                    <TableCell>{formatGBP(getEffectiveRate(row))}/hr</TableCell>
                     <TableCell>{row.total_sessions}</TableCell>
-                    <TableCell>{formatGBP(row.total_cost)}</TableCell>
+                    <TableCell>{formatGBP(getEffectiveTotal(row))}</TableCell>
                     <TableCell>
                       {row.validation_warnings && row.validation_warnings.length > 0 && (
                         <div className="flex flex-col gap-1">
@@ -284,8 +333,8 @@ export default function PayRunReview() {
                     <TableRow key={li.id}>
                       <TableCell>{li.location_name}</TableCell>
                       <TableCell className="text-right">{li.sessions}</TableCell>
-                      <TableCell className="text-right">{formatGBP(li.rate)}</TableCell>
-                      <TableCell className="text-right">{formatGBP(li.amount)}</TableCell>
+                      <TableCell className="text-right">{formatGBP(getEffectiveRate(selectedRow))}</TableCell>
+                      <TableCell className="text-right">{formatGBP(Number(li.sessions) * getEffectiveRate(selectedRow))}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -295,7 +344,7 @@ export default function PayRunReview() {
 
               <div className="flex justify-between text-sm font-medium">
                 <span>Total: {selectedRow.total_sessions} sessions</span>
-                <span>{formatGBP(selectedRow.total_cost)}</span>
+                <span>{formatGBP(getEffectiveTotal(selectedRow))}</span>
               </div>
             </div>
           )}

@@ -35,6 +35,11 @@ function parseCSV(text: string): string[][] {
   });
 }
 
+function parseCurrency(value: string | undefined): number {
+  if (!value) return 0;
+  return parseFloat(value.replace(/[^0-9.-]/g, "")) || 0;
+}
+
 function detectColumns(headers: string[]) {
   const trainerCol = headers.findIndex(
     (h) => h.toLowerCase() === "trainer" || h.toLowerCase() === "name"
@@ -133,9 +138,9 @@ export default function UploadPayRun() {
 
         // Skip trainers not in the system — they won't appear in the pay run at all
 
-        const hourlyRate = cols.rateCol !== -1 ? parseFloat(row[cols.rateCol]) || 0 : 0;
-        const totalSessions = parseFloat(row[cols.totalSessionsCol]) || 0;
-        const totalCost = parseFloat(row[cols.totalCostCol]) || 0;
+        const csvHourlyRate = cols.rateCol !== -1 ? parseCurrency(row[cols.rateCol]) : 0;
+        const totalSessions = parseCurrency(row[cols.totalSessionsCol]);
+        const csvTotalCost = parseCurrency(row[cols.totalCostCol]);
 
         // Match trainer using multi-strategy matching
         let matchedTrainer: any = null;
@@ -234,22 +239,31 @@ export default function UploadPayRun() {
           }
         }
 
+        const trainerDefaultRate = parseCurrency(String(matchedTrainer?.default_hourly_rate ?? ""));
+        const effectiveHourlyRate = trainerDefaultRate > 0 ? trainerDefaultRate : csvHourlyRate;
+
         // Build validation warnings
         const warnings: string[] = [];
         if (matchedTrainer) {
           if (!matchedTrainer.email || !matchedTrainer.bank_account_number) {
             warnings.push("Trainer profile incomplete");
           }
+          if (csvHourlyRate > 0 && effectiveHourlyRate !== csvHourlyRate) {
+            warnings.push(`CSV rate £${csvHourlyRate.toFixed(2)} overridden by trainer rate £${effectiveHourlyRate.toFixed(2)}`);
+          }
         }
 
         // Build line items
         const lineItems = cols.locationColumns
-          .map((loc) => ({
-            location_name: loc.name,
-            sessions: parseFloat(row[loc.sessionsCol]) || 0,
-            rate: hourlyRate,
-            amount: parseFloat(row[loc.costCol]) || 0,
-          }))
+          .map((loc) => {
+            const sessions = parseCurrency(row[loc.sessionsCol]);
+            return {
+              location_name: loc.name,
+              sessions,
+              rate: effectiveHourlyRate,
+              amount: sessions * effectiveHourlyRate,
+            };
+          })
           .filter((li) => li.sessions > 0);
 
         // Validate totals
@@ -258,8 +272,8 @@ export default function UploadPayRun() {
         if (Math.abs(calcTotalSessions - totalSessions) > 0.01) {
           warnings.push(`Sessions mismatch: sum ${calcTotalSessions} ≠ CSV total ${totalSessions}`);
         }
-        if (Math.abs(calcTotalCost - totalCost) > 0.01) {
-          warnings.push(`Cost mismatch: sum £${calcTotalCost.toFixed(2)} ≠ CSV total £${totalCost.toFixed(2)}`);
+        if (Math.abs(calcTotalCost - csvTotalCost) > 0.01) {
+          warnings.push(`Cost mismatch: DB-rate total £${calcTotalCost.toFixed(2)} ≠ CSV total £${csvTotalCost.toFixed(2)}`);
         }
 
         // Insert pay run row
@@ -269,9 +283,9 @@ export default function UploadPayRun() {
             pay_run_id: payRun.id,
             trainer_name_csv: trainerName,
             matched_trainer_id: matchedTrainer?.id || null,
-            hourly_rate_csv: hourlyRate,
+            hourly_rate_csv: effectiveHourlyRate,
             total_sessions: totalSessions,
-            total_cost: totalCost,
+            total_cost: calcTotalCost,
             match_status: matchStatus as any,
             validation_warnings: warnings,
           })

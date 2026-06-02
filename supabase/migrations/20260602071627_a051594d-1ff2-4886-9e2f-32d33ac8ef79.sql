@@ -1,0 +1,2 @@
+UPDATE public.trainers SET guarantee_amount = 0, guarantee_sessions = 0 WHERE full_name IN ('Laura Fumagalli','Blin Zeka');
+UPDATE public.pay_run_rows SET skip_guarantee = true WHERE matched_trainer_id IN (SELECT id FROM public.trainers WHERE full_name IN ('Laura Fumagalli','Blin Zeka'));

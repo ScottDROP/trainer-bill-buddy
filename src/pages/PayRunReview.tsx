@@ -107,30 +107,15 @@ export default function PayRunReview() {
       const unmatched = rows.filter((r: any) => !r.matched_trainer_id);
       if (unmatched.length > 0) throw new Error(`${unmatched.length} trainers still unmatched`);
 
-      for (const row of rows) {
-        const trainer = trainers.find((t: any) => t.id === row.matched_trainer_id);
-        const effectiveRate = Number((trainer as any)?.default_hourly_rate) || Number(row.hourly_rate_csv) || 0;
-        const { data: freshLineItems, error: fetchError } = await supabase
-          .from("pay_run_line_items")
-          .select("*")
-          .eq("pay_run_row_id", row.id);
-        if (fetchError) throw fetchError;
-
-        const correctedTotal = (freshLineItems ?? []).reduce((sum: number, li: any) => sum + Number(li.sessions) * effectiveRate, 0);
-        for (const li of freshLineItems ?? []) {
-          const { error: liError } = await supabase
-            .from("pay_run_line_items")
-            .update({ rate: effectiveRate, amount: Number(li.sessions) * effectiveRate })
-            .eq("id", li.id);
-          if (liError) throw liError;
-        }
-
-        const { error: rowError } = await supabase
-          .from("pay_run_rows")
-          .update({ hourly_rate_csv: effectiveRate, total_cost: correctedTotal })
-          .eq("id", row.id);
-        if (rowError) throw rowError;
-      }
+      // DB triggers (`after_pay_run_row_rate_change`) already cascade the effective rate
+      // to line items and recompute row totals whenever a pay_run_rows row is updated.
+      // A single bulk update replaces the previous 3×N round-trip loop that was hanging.
+      const rowIds = rows.map((r: any) => r.id);
+      const { error: bulkError } = await supabase
+        .from("pay_run_rows")
+        .update({ match_status: "manual" as any })
+        .in("id", rowIds);
+      if (bulkError) throw bulkError;
 
       const { error } = await supabase
         .from("pay_runs")
@@ -143,7 +128,10 @@ export default function PayRunReview() {
       toast.success("Pay run approved");
       navigate(`/pay-runs/${id}/invoices`);
     },
-    onError: (e) => toast.error(e.message),
+    onError: (e: any) => {
+      console.error("Approve failed:", e);
+      toast.error(e?.message || "Approve failed");
+    },
   });
 
   const matchIcon = (status: string) => {

@@ -50,7 +50,9 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner />
-      <BrowserRouter>
+      {/* basename tracks Vite's base so the app also works served under a
+          subpath (join.dropgym.io/invoicing); "/" in dev collapses to "". */}
+      <BrowserRouter basename={import.meta.env.BASE_URL.replace(/\/$/, "")}>
         <AuthGate>
           <Routes>
             <Route element={<AppLayout />}>
